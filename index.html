@@ -7,36 +7,45 @@
   <meta name="description" content="Seven arcade games, each playable by a human or the computer on either side of the table.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
   <header class="marquee">
-    <h1><a href="#">Cocktail Cabinet</a></h1>
-    <p>Seven games. Sit on either side of the table.</p>
+    <div class="marquee-box">
+      <div class="marquee-bar"><span>1UP</span><span class="blink">FREE PLAY</span><span>2UP</span></div>
+      <h1><a href="#"><span>COCKTAIL</span><span>CABINET</span></a></h1>
+      <p class="tagline">7 GAMES &middot; 2 SIDES &middot; 1 TABLE</p>
+    </div>
   </header>
 
   <main id="menu" class="menu" aria-label="Game selection"></main>
 
   <section id="stage" class="stage" hidden>
     <div class="stage-bar">
-      <button id="btn-back" class="btn ghost" type="button">&larr; Cabinet</button>
+      <button id="btn-back" class="btn ghost" type="button">&#9664; EXIT</button>
       <div class="stage-title">
         <span id="stage-name"></span>
         <span id="stage-mode" class="pill"></span>
       </div>
-      <button id="btn-pause" class="btn ghost" type="button">Pause</button>
+      <button id="btn-pause" class="btn ghost" type="button">PAUSE</button>
     </div>
     <div class="bezel" id="bezel">
       <canvas id="screen" width="800" height="600" tabindex="0" aria-label="Game screen"></canvas>
       <div id="dom-layer" class="dom-layer" hidden></div>
       <div id="overlay" class="overlay" hidden></div>
+      <div class="crt" aria-hidden="true"></div>
     </div>
-    <p id="help" class="help"></p>
+    <div class="control-panel">
+      <span class="stick" aria-hidden="true"></span>
+      <p id="help" class="help"></p>
+      <span class="buttons" aria-hidden="true"><i></i><i></i></span>
+    </div>
   </section>
 
   <footer class="foot">
-    <span>Static HTML/CSS/JS &middot; every computer player uses the same controls and physics as a human.</span>
+    <p class="blink">INSERT COIN</p>
+    <p>&copy;198X COCKTAIL CABINET &middot; EVERY CPU PLAYER USES YOUR CONTROLS AND YOUR PHYSICS</p>
   </footer>
 
   <!-- PeerJS: WebRTC data channels for Imitation's two-browser play (public broker, no API key) -->

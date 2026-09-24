@@ -106,23 +106,23 @@
   }
 
   function buildMenu() {
-    el.menu.innerHTML = '';
-    for (const g of Cab.games) {
+    el.menu.innerHTML = '<h2 class="select-title">SELECT GAME</h2>';
+    Cab.games.forEach((g, i) => {
       const card = document.createElement('article');
       card.className = 'card';
       card.style.setProperty('--c', g.color);
-      card.innerHTML = `<h2>${U.esc(g.name)}</h2><p>${U.esc(g.blurb)}</p><div class="modes"></div>`;
+      card.innerHTML = `<span class="card-no">${String(i + 1).padStart(2, '0')}</span><h2>${U.esc(g.name)}</h2><p>${U.esc(g.blurb)}</p><div class="modes"></div>`;
       const modes = card.querySelector('.modes');
       for (const m of g.modes) {
         const b = document.createElement('button');
         b.className = 'mode-btn';
         b.type = 'button';
-        b.innerHTML = `<b>${U.esc(m.name)}</b><span><span class="who">You:</span> ${U.esc(m.you)}</span><span><span class="who">Computer:</span> ${U.esc(m.cpu)}</span>`;
+        b.innerHTML = `<b>${U.esc(m.name)}</b><span><span class="who">YOU</span> ${U.esc(m.you)}</span><span><span class="who">CPU</span> ${U.esc(m.cpu)}</span>`;
         b.onclick = () => { location.hash = `#/${g.id}/${m.id}`; };
         modes.appendChild(b);
       }
       el.menu.appendChild(card);
-    }
+    });
   }
 
   function route() {
@@ -199,7 +199,7 @@
     hideOverlay();
     keys.clear();
     ended = false; paused = false;
-    el.pause.textContent = 'Pause';
+    el.pause.textContent = 'PAUSE';
     if (game.dom) el.dom.innerHTML = '';
     api = {
       W, H, U, D, keys, mouse,
@@ -264,7 +264,7 @@
   function setPaused(p) {
     if (!running || ended || game.dom) return;
     paused = p;
-    el.pause.textContent = p ? 'Resume' : 'Pause';
+    el.pause.textContent = p ? 'RESUME' : 'PAUSE';
     if (p) {
       overlay(`<h3>Paused</h3><p>Press P or Esc to resume.</p><div class="row"><button class="btn" data-act="resume">Resume</button><button class="btn ghost" data-act="menu">Cabinet</button></div>`);
     } else {
