@@ -140,9 +140,9 @@
       chip.className = 'chip';
       chip.setAttribute('role', 'tab');
       chip.style.setProperty('--c', g.color);
-      chip.dataset.name = g.name;                      // printed on the cartridge label (CSS)
       chip.setAttribute('aria-label', g.name);
-      chip.innerHTML = `<span>${String(i + 1).padStart(2, '0')}</span>`;
+      chip.innerHTML = `<span class="chip-no">${String(i + 1).padStart(2, '0')}</span>
+        <span class="chip-label">${Cab.iconSVG ? Cab.iconSVG(g.id) : ''}<span class="chip-name">${U.esc(g.name)}</span></span>`;
       chip.onclick = () => selectGame(i);
       track.appendChild(chip);
     });

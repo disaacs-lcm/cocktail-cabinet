@@ -48,9 +48,9 @@
         const id = (r * 7 + k * 13) % 60;
         if (id < gone) continue;
         g.fillStyle = colors[r];
-        g.fillRect(k * bw + 2, 30 + r * 18, bw - 4, 14);
+        g.fillRect(k * bw + 2, 62 + r * 18, bw - 4, 14);
       }
-      const bx = fold(t * 210, 8, W - 8), by = fold(t * 170 + 150, 130, H - 34);
+      const bx = fold(t * 210, 8, W - 8), by = fold(t * 170 + 150, 160, H - 34);
       glow(g, c, 12);
       g.fillStyle = c; g.fillRect(Math.max(0, Math.min(W - 70, bx - 35)), H - 26, 70, 9);
       g.fillStyle = '#fff'; g.beginPath(); g.arc(bx, by, 6, 0, TAU); g.fill();
@@ -147,5 +147,113 @@
     g.save();
     if (Math.floor(t * 1.6) % 2 === 0) { glow(g, '#ffe74a', 10); txt(g, 'PRESS START', W / 2, H - 14, 10, '#ffe74a'); }
     g.restore();
+  };
+})();
+
+/* Cartridge label art: tiny 16x10 pixel sprites, one character per pixel.
+ * Letters pick a colour from PALETTE; '.' is transparent. Cab.iconSVG(id) returns an <svg>. */
+(function () {
+  'use strict';
+  const PALETTE = {
+    k: '#120a1c', w: '#ffffff', r: '#ff3b4f', o: '#ff8a1f', y: '#ffe74a',
+    g: '#3dff7a', c: '#29f3ff', p: '#ff2e97', b: '#8a5cff', s: '#b8b0d6',
+  };
+  const ICONS = {
+    snake: [
+      '................',
+      '.............g..',
+      '..wggggg....rrr.',
+      '..gg...g...rrrrr',
+      '.......g...rrrrr',
+      '..ggggggg...rrr.',
+      '..g.............',
+      '..gggggggggg....',
+      '...........g....',
+      '................',
+    ],
+    breakout: [
+      'rrr.rrr.rrr.rrr.',
+      'ooo.ooo.ooo.ooo.',
+      'yyy.yyy.....yyy.',
+      'ggg.........ggg.',
+      '................',
+      '.........w......',
+      '................',
+      '.......w........',
+      '................',
+      '.....cccccc.....',
+    ],
+    splat: [
+      'gg..........gg..',
+      'gg..........gg..',
+      'gg..........gg..',
+      'gg...yyy........',
+      '....yykyo.......',
+      '....yyyy........',
+      '.....yy.........',
+      'gg..........gg..',
+      'gg..........gg..',
+      'gg..........gg..',
+    ],
+    asteroids: [
+      '..........sss...',
+      '.........s...s..',
+      '.........s....s.',
+      '..........s..s..',
+      '...........ss...',
+      '....c...........',
+      '...ccc.w..w.....',
+      '..cc.cc.........',
+      '.............ss.',
+      '............s..s',
+    ],
+    missile: [
+      'r.............r.',
+      '.r...........r..',
+      '..r.........r...',
+      '...r.......r....',
+      '....r.....ooo...',
+      '....r....ooyoo..',
+      '..........ooo...',
+      '................',
+      '.c.cc.c..c.cc.c.',
+      'bbbbbbbbbbbbbbbb',
+    ],
+    imitation: [
+      '.ggggggggg......',
+      '.g.......g......',
+      '.g.g.g.g.g......',
+      '.g.......g......',
+      '.ggggggggg......',
+      '..g.............',
+      '......cccccccccc',
+      '......c...cc...c',
+      '......c....c...c',
+      '......cccccccccc',
+    ],
+    pong: [
+      '.......w........',
+      'c..............o',
+      'c......w.......o',
+      'c..............o',
+      'c......w...ww..o',
+      '...........ww...',
+      '.......w........',
+      '................',
+      '.......w........',
+      '................',
+    ],
+  };
+
+  Cab.iconSVG = function (id) {
+    const rows = ICONS[id];
+    if (!rows) return '';
+    let rects = '';
+    rows.forEach((row, y) => {
+      [...row].forEach((ch, x) => {
+        if (PALETTE[ch]) rects += `<rect x="${x}" y="${y}" width="1.02" height="1.02" fill="${PALETTE[ch]}"/>`;
+      });
+    });
+    return `<svg class="chip-art" viewBox="-1 -1 18 12" shape-rendering="crispEdges" aria-hidden="true">${rects}</svg>`;
   };
 })();
