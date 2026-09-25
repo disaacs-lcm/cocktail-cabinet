@@ -34,7 +34,7 @@
         cd -= dt;
         const { missiles, batteries, cities, explosions } = world;
         const ammoLeft = batteries.reduce((n, b) => n + (b.alive ? b.ammo : 0), 0);
-        for (const m of missiles) if (!noticed.has(m)) noticed.set(m, clock + U.rand(0.3, 0.55)); // reaction time
+        for (const m of missiles) if (!noticed.has(m)) noticed.set(m, clock + U.rand(0.35, 0.65)); // reaction time
         for (const k of [...noticed.keys()]) if (!missiles.includes(k)) { noticed.delete(k); assigned.delete(k); }
         if (cd > 0) return;
 
@@ -49,10 +49,10 @@
         for (const t of threats) {
           const plan = bestShot(t.m, batteries);
           if (!plan) continue;
-          const ex = plan.x + U.gauss(12), ey = plan.y + U.gauss(12);
+          const ex = plan.x + U.gauss(15), ey = plan.y + U.gauss(15);
           if (fireAt(plan.bat, ex, ey)) {
             assigned.set(t.m, clock + plan.T + 0.9);
-            cd = U.rand(0.26, 0.4);   // about as fast as a person can aim and click
+            cd = U.rand(0.3, 0.45);   // about as fast as a person can aim and click
             // A single blast often covers neighbours too, so mark nearby missiles as handled.
             for (const o of missiles) {
               if (o === t.m) continue;
@@ -135,7 +135,7 @@
       let schedule = [], budget = 0, launchCd = 0, drag = null, msg = '', msgT = 0;
       const WAVE_TIME = 28;
 
-      const mSpeed = () => (flip ? 52 + wave * 16 : 42 + wave * 11);
+      const mSpeed = () => (flip ? 52 + wave * 16 : 40 + wave * 10);
       const splitOK = () => (flip ? wave >= 2 : wave >= 3);
       function say(m) { msg = m; msgT = 1.5; }
 
@@ -147,7 +147,7 @@
         if (flip) budget = 13 + (wave - 1) * 6;
         else {
           // The computer attacker's plan for this wave: a list of launch times.
-          const n = 8 + wave * 3;
+          const n = 7 + Math.round(wave * 2.5);
           schedule = [];
           for (let i = 0; i < n; i++) schedule.push(U.rand(0.5, 14 + wave * 1.5));
           schedule.sort((a, b) => a - b);

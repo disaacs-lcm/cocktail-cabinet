@@ -28,7 +28,7 @@
         if (coming && !wasComing) {
           // One read per incoming ball, the way a player commits: a misjudgement that
           // doesn't vanish as the ball arrives, plus an off-centre hit to angle the return.
-          misread = U.gauss((1 - skill) * 42);
+          misread = U.gauss((1 - skill) * 48);
           aimOff = U.rand(-0.3, 0.3) * PH * skill;
         }
         wasComing = coming;
@@ -86,7 +86,7 @@
       const ball = { x: W / 2, y: (TOP + BOT) / 2, vx: 0, vy: 0, speed: 0 };
       let you = 0, cpu = 0, serveT = 1.2, rally = 0, meter = 1, bending = 0, useMouse = false;
       let flash = '', flashT = 0;
-      const skill = () => (flip ? Math.min(0.2 + (you + cpu) * 0.06, 0.9) : Math.min(0.28 + (you + cpu) * 0.06, 0.9));
+      const skill = () => (flip ? Math.min(0.14 + (you + cpu) * 0.06, 0.85) : Math.min(0.2 + (you + cpu) * 0.05, 0.85));
 
       function serve(dir) {
         ball.x = W / 2; ball.y = U.rand(TOP + 80, BOT - 80);

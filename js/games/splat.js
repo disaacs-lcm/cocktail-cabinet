@@ -151,7 +151,7 @@
       const flip = api.mode === 'flip';
       const bird = { y: H / 2 - 40, vy: 0, rot: 0 };
       const columns = [];
-      const ai = flip ? aiFlapper(0.5) : null;
+      const ai = flip ? aiFlapper(0.35) : null;
       let passed = 0, started = !!flip, dead = false, deadT = 0, t = 0;
       let lastGapY = H / 2 - 20, nextX = W + 60;
       let ghostY = lastGapY, keyGhost = false;
@@ -168,7 +168,7 @@
         const k = Math.min(passed / 30, 1);
         const mid = (range.lo + range.hi) / 2;
         const far = Math.random() < 0.5 ? range.lo : range.hi;
-        return U.clamp(U.lerp(mid, far, U.rand(0.2, 0.5 + 0.5 * k)) + U.gauss(10), range.lo, range.hi);
+        return U.clamp(U.lerp(mid, far, U.rand(0.15, 0.4 + 0.45 * k)) + U.gauss(10), range.lo, range.hi);
       }
 
       function spawn() {

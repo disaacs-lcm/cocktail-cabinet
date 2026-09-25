@@ -130,7 +130,9 @@
       const path = bfs(head.x, head.y, bodyGrid(s.snake, s.grow === 0), s.apple);
       if (path) {
         const desperate = s.hunger - path.length <= 3;
-        if (desperate || tailReachableAfter(s, path)) return path[0];
+        // Now and then it gets greedy and skips the safety check, as a person would.
+        const greedy = Math.random() < 0.12;
+        if (desperate || greedy || tailReachableAfter(s, path)) return path[0];
       }
     }
     return stallMove(s); // may be null => nowhere to go, it will crash
@@ -158,7 +160,7 @@
     if (!cells.length) return null;
     const head = s.snake[0];
     // Level 1 is uniform random; each level samples more cells and keeps the nastiest.
-    const k = Math.min(1 + (level - 1) * 2, 11);
+    const k = Math.min(level, 7);
     let best = null, bestScore = -Infinity;
     for (let i = 0; i < k; i++) {
       const c = U.pick(cells);
@@ -225,10 +227,10 @@
         s.apple = c;
         waitT = 0;
         if (flip) {
-          // Hunger: shortest distance plus some slack. Slack shrinks from 30 to 6 moves.
+          // Hunger: shortest distance plus some slack. Slack shrinks from 26 to 5 moves.
           const head = s.snake[0];
           const p = bfs(head.x, head.y, bodyGrid(s.snake, s.grow === 0), c);
-          const slack = Math.max(6, 30 - eaten);
+          const slack = Math.max(5, 26 - eaten);
           s.hungerMax = s.hunger = (p ? p.length : 20) + slack;
           if (!byHuman) say('Too slow — random apple');
         }

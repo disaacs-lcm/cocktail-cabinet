@@ -190,7 +190,7 @@
             target = U.lerp(well.x + well.w / 2, b.x, 0.5);
           }
         }
-        well.movePaddle(target, U.lerp(520, 900, skill), dt);
+        well.movePaddle(target, U.lerp(460, 820, skill), dt);
       },
     };
   }
@@ -284,7 +284,7 @@
       you = new Well(0, WW, 8, 5, { speed: 300, paddleW: 84 });
       cpu = new Well(WW + GAP, WW, 8, 5, { speed: 300, paddleW: 84 });
       humanCtl = humanController(api, (x) => U.lerp(0, WW, x / W));
-      cpuCtl = cpuController(Math.min(0.2 + (round - 1) * 0.17, 0.9));
+      cpuCtl = cpuController(Math.min(0.12 + (round - 1) * 0.15, 0.75));
       pending = { you: 0, cpu: 0 };
       banner = 1.6; bannerText = `ROUND ${round}`; between = false;
     }

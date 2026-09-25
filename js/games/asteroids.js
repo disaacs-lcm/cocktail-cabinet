@@ -59,7 +59,7 @@
 
   function aiPilot(skill) {
     let think = 0, aimNoise = 0, targetRock = null, plan = { turn: 0, thrust: false, fire: false };
-    const SAFE = 42;
+    const SAFE = 36;
     return {
       plan(ship, rocks, dt) {
         think -= dt;
@@ -165,7 +165,7 @@
       const flip = api.mode === 'flip';
       let ship = newShip();
       const rocks = [], bullets = [], sparks = [];
-      const pilot = flip ? aiPilot(0.6) : null;
+      const pilot = flip ? aiPilot(0.45) : null;
       let lives = 3, wave = 1, waveT = 0, score = 0, banner = 1.6, bannerText = 'WAVE 1';
       // flip state
       let energy = 4, size = 3, drag = null, msg = '', msgT = 0;
@@ -184,7 +184,7 @@
 
       // Classic: the computer's rock-thrower.
       function cpuWave() {
-        const n = 2 + wave;
+        const n = 1 + Math.ceil(wave * 0.8);
         for (let i = 0; i < n; i++) cpuThrow(3);
       }
       function cpuThrow(sz) {
@@ -193,7 +193,7 @@
           if (Math.random() < 0.5) { x = U.rand(0, W); y = Math.random() < 0.5 ? 0 : H; }
           else { x = Math.random() < 0.5 ? 0 : W; y = U.rand(0, H); }
         } while (U.dist(x, y, ship.x, ship.y) < 250);
-        const spread = U.lerp(0.9, 0.25, (wave - 1) / (CLASSIC_WAVES - 1));
+        const spread = U.lerp(1.0, 0.35, (wave - 1) / (CLASSIC_WAVES - 1));
         const a = Math.atan2(wd(ship.y - y, H), wd(ship.x - x, W)) + U.rand(-spread, spread);
         const v = U.rand(40, 60) + wave * 10;
         rocks.push(makeRock(x, y, Math.cos(a) * v, Math.sin(a) * v, sz));
