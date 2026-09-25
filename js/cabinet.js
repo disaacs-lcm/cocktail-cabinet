@@ -105,24 +105,119 @@
     route();
   }
 
+  // ---------------------------------------------------------------- menu: the cocktail table
+  // Pick a game on the reel; its attract demo plays on the table. Then pick a seat:
+  // the near seat (P1) is the classic side, the far seat (P2) is the flipped side.
+  const menu = { sel: 0, raf: 0, t0: 0, far: false };
+
   function buildMenu() {
-    el.menu.innerHTML = '<h2 class="select-title">SELECT GAME</h2>';
+    el.menu.innerHTML = `
+      <h2 class="select-title">PICK A GAME &middot; PICK A SIDE</h2>
+      <div class="reel">
+        <button class="reel-arrow" type="button" data-dir="-1" aria-label="Previous game">&#9664;</button>
+        <div class="reel-track" role="tablist" aria-label="Games"></div>
+        <button class="reel-arrow" type="button" data-dir="1" aria-label="Next game">&#9654;</button>
+      </div>
+      <div class="table-scene">
+        <button class="seat seat-p1" type="button" data-seat="0"></button>
+        <div class="cocktail" aria-hidden="true">
+          <div class="cocktail-glass">
+            <canvas id="attract" width="480" height="360"></canvas>
+            <div class="attract-title"></div>
+            <div class="crt"></div>
+          </div>
+          <span class="coin-slot"></span>
+        </div>
+        <button class="seat seat-p2" type="button" data-seat="1"></button>
+      </div>
+      <p class="menu-blurb" aria-live="polite"></p>
+      <p class="menu-keys">&larr; &rarr; CHANGE GAME &middot; ENTER SIT AT P1 (CLASSIC) &middot; SHIFT+ENTER SIT AT P2 (FLIPPED)</p>`;
+    const track = el.menu.querySelector('.reel-track');
     Cab.games.forEach((g, i) => {
-      const card = document.createElement('article');
-      card.className = 'card';
-      card.style.setProperty('--c', g.color);
-      card.innerHTML = `<span class="card-no">${String(i + 1).padStart(2, '0')}</span><h2>${U.esc(g.name)}</h2><p>${U.esc(g.blurb)}</p><div class="modes"></div>`;
-      const modes = card.querySelector('.modes');
-      for (const m of g.modes) {
-        const b = document.createElement('button');
-        b.className = 'mode-btn';
-        b.type = 'button';
-        b.innerHTML = `<b>${U.esc(m.name)}</b><span><span class="who">YOU</span> ${U.esc(m.you)}</span><span><span class="who">CPU</span> ${U.esc(m.cpu)}</span>`;
-        b.onclick = () => { location.hash = `#/${g.id}/${m.id}`; };
-        modes.appendChild(b);
-      }
-      el.menu.appendChild(card);
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'chip';
+      chip.setAttribute('role', 'tab');
+      chip.style.setProperty('--c', g.color);
+      chip.innerHTML = `<span>${String(i + 1).padStart(2, '0')}</span>${U.esc(g.name)}`;
+      chip.onclick = () => selectGame(i);
+      track.appendChild(chip);
     });
+    el.menu.querySelectorAll('.reel-arrow').forEach((b) => { b.onclick = () => selectGame(menu.sel + +b.dataset.dir); });
+    el.menu.querySelectorAll('.seat').forEach((b) => {
+      b.onclick = () => sit(+b.dataset.seat);
+      // Reaching for the far seat turns the table to face that side.
+      if (b.dataset.seat === '1') {
+        const turn = (on) => { menu.far = on; el.menu.querySelector('.cocktail').classList.toggle('turned', on); };
+        b.addEventListener('pointerenter', () => turn(true));
+        b.addEventListener('pointerleave', () => turn(false));
+        b.addEventListener('focus', () => turn(true));
+        b.addEventListener('blur', () => turn(false));
+      }
+    });
+    // Swipe the table to spin the reel on touch screens.
+    const table = el.menu.querySelector('.cocktail');
+    let sx = null;
+    table.addEventListener('pointerdown', (e) => { sx = e.clientX; });
+    table.addEventListener('pointerup', (e) => {
+      if (sx !== null && Math.abs(e.clientX - sx) > 40) selectGame(menu.sel + (e.clientX < sx ? 1 : -1));
+      sx = null;
+    });
+    el.attract = $('attract').getContext('2d');
+    let saved = 0;
+    try { saved = +sessionStorage.getItem('cab.sel') || 0; } catch (e) { /* storage blocked */ }
+    selectGame(saved, true);
+  }
+
+  function selectGame(i, instant) {
+    const n = Cab.games.length;
+    menu.sel = ((i % n) + n) % n;
+    try { sessionStorage.setItem('cab.sel', menu.sel); } catch (e) { /* storage blocked */ }
+    const g = Cab.games[menu.sel];
+    el.menu.style.setProperty('--c', g.color);
+    el.menu.querySelectorAll('.chip').forEach((c, k) => {
+      c.classList.toggle('on', k === menu.sel);
+      c.setAttribute('aria-selected', k === menu.sel);
+      if (k === menu.sel && !el.menu.hidden) c.scrollIntoView({ block: 'nearest', inline: 'center', behavior: instant ? 'auto' : 'smooth' });
+    });
+    el.menu.querySelector('.attract-title').textContent = g.name;
+    el.menu.querySelector('.menu-blurb').textContent = g.blurb;
+    g.modes.forEach((m, k) => {
+      const seat = el.menu.querySelector(`[data-seat="${k}"]`);
+      seat.innerHTML = `
+        <span class="seat-in">
+          <span class="seat-tag">${k === 0 ? 'P1 SEAT' : 'P2 SEAT'} &middot; ${k === 0 ? 'CLASSIC' : 'FLIPPED'}</span>
+          <b>${U.esc(m.name)}</b>
+          <span><i>YOU</i> ${U.esc(m.you)}</span>
+          <span><i>CPU</i> ${U.esc(m.cpu)}</span>
+          <span class="seat-go">SIT HERE</span>
+          <span class="seat-deco"><span class="stick"></span><span class="buttons"><i></i><i></i></span></span>
+        </span>`;
+      seat.setAttribute('aria-label', `${g.name}, ${m.name}: you ${m.you}; computer ${m.cpu}`);
+    });
+    // A quick screen "channel change" when switching games.
+    const glass = el.menu.querySelector('.cocktail-glass');
+    glass.classList.remove('switch'); void glass.offsetWidth; glass.classList.add('switch');
+    menu.t0 = performance.now();
+  }
+
+  function sit(k) {
+    const g = Cab.games[menu.sel];
+    location.hash = `#/${g.id}/${g.modes[k].id}`;
+  }
+
+  function attractLoop(now) {
+    menu.raf = requestAnimationFrame(attractLoop);
+    const g = Cab.games[menu.sel];
+    Cab.attract(g.id, el.attract, (now - menu.t0) / 1000, 480, 360, g.color);
+  }
+  function startAttract() { cancelAnimationFrame(menu.raf); if (Cab.attract) menu.raf = requestAnimationFrame(attractLoop); }
+  function stopAttract() { cancelAnimationFrame(menu.raf); }
+
+  function menuKey(e) {
+    if (e.code === 'ArrowLeft') { e.preventDefault(); selectGame(menu.sel - 1); }
+    else if (e.code === 'ArrowRight') { e.preventDefault(); selectGame(menu.sel + 1); }
+    else if (e.code === 'Enter' && !e.target.closest('button')) { e.preventDefault(); sit(e.shiftKey ? 1 : 0); }
   }
 
   function route() {
@@ -134,8 +229,13 @@
       el.stage.hidden = true;
       el.menu.hidden = false;
       document.title = 'Cocktail Cabinet';
+      selectGame(menu.sel, true);
+      startAttract();
       return;
     }
+    stopAttract();
+    menu.sel = Cab.games.indexOf(g);
+    try { sessionStorage.setItem('cab.sel', menu.sel); } catch (e) { /* storage blocked */ }
     game = g; mode = m;
     el.menu.hidden = true;
     el.stage.hidden = false;
@@ -277,7 +377,8 @@
 
   function onKeyDown(e) {
     const typing = e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA');
-    if (typing || el.stage.hidden) return;
+    if (typing) return;
+    if (el.stage.hidden) { menuKey(e); return; }
     if (!running) {
       if ((e.code === 'Enter' || e.code === 'Space') && !el.overlay.hidden && document.activeElement === document.body) {
         e.preventDefault();
