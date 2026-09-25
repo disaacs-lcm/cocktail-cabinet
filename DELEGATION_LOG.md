@@ -45,9 +45,9 @@ Entries marked **(me)** are for my own checks. Fill them in before submitting.
 
 **Produced:**
 - A step-by-step guide: create the Netlify project from the GitHub repo; add the subdomain in Netlify; add a CNAME record in Cloudflare pointing to the `netlify.app` address; set it to DNS only (grey cloud) so Netlify can issue the HTTPS certificate.
-- The push to GitHub. The plain `git@github.com` address was refused, because this Mac has no default GitHub key. Claude found the `githublcm` alias in `~/.ssh/config`, switched the remote to it, and pushed.
+- The first push of the code to GitHub.
 
-**Verified by Claude:** `ssh -T githublcm` answered as `disaacs-lcm`. The push succeeded. `git ls-remote` over plain HTTPS, with no login, showed the repo is public.
+**Verified by Claude:** The push succeeded. `git ls-remote` over plain HTTPS, with no login, showed the repo is public.
 
 ### 5. 80s arcade restyle
 **Asked:** Make it look like an 80s arcade.
