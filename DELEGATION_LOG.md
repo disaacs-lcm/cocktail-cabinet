@@ -40,13 +40,94 @@ Entries marked **(me)** are for my own checks. Fill them in before submitting.
 
 **Verified by Claude:** Two browser tabs matched each other. A message typed in one appeared in the other. The guess and reveal worked on both sides. A lone tab fell back to the bot. The "Prove it" judge flagged pasted, assistant-style answers.
 
-### 4. (me) Hands-on playtest
+### 4. GitHub and a Netlify walkthrough
+**Asked:** Walk me through deploying on Netlify, on a subdomain. My main site's DNS is on Cloudflare. Then I gave Claude the repo address `git@github.com:disaacs-lcm/cocktail-cabinet.git`.
+
+**Produced:**
+- A step-by-step guide: create the Netlify project from the GitHub repo; add the subdomain in Netlify; add a CNAME record in Cloudflare pointing to the `netlify.app` address; set it to DNS only (grey cloud) so Netlify can issue the HTTPS certificate.
+- The push to GitHub. The plain `git@github.com` address was refused, because this Mac has no default GitHub key. Claude found the `githublcm` alias in `~/.ssh/config`, switched the remote to it, and pushed.
+
+**Verified by Claude:** `ssh -T githublcm` answered as `disaacs-lcm`. The push succeeded. `git ls-remote` over plain HTTPS, with no login, showed the repo is public.
+
+### 5. 80s arcade restyle
+**Asked:** Make it look like an 80s arcade.
+
+**Produced:** A lit marquee with a chrome-sunset logo, pixel and terminal fonts, a CRT screen with scanlines and flicker, a control panel under the screen, and a green-phosphor terminal look for Imitation.
+
+**Verified by Claude:** Screenshots of the menu and a live game in the browser.
+
+### 6. Question: does it use Claude in the backend?
+**Answer:** No. Claude searched the site code for `anthropic`, `claude`, API keys and network calls. The only outside requests are the fonts, the PeerJS script, and PeerJS's connection broker for Imitation. Every computer player, including Imitation's bot and judge, is JavaScript running in the player's browser. The only match for "claude" is a pattern that lets the bot deflect "are you claude?".
+
+### 7. Nerf the computer
+**Asked:** The CPU is too good in a lot of games (not Imitation). Nerf it a little.
+
+**Produced:** Smaller, human-like handicaps:
+- **Snake:** about 1 time in 8 it skips its safety check, and it gets less time to reach each apple.
+- **Breakout and Pong:** paddles misjudge the ball more, move slower, and gain skill more slowly.
+- **Splat:** the bird misjudges gaps more and hesitates more often.
+- **Asteroids:** the pilot takes closer calls and aims worse.
+- **Missile Command:** the defender reacts slower, aims worse and fires slower.
+- **Classic modes:** the computer's attacks and layouts are gentler.
+
+**Verified by Claude (`tools/sim.js`, human wins out of runs):**
+
+| Scenario | Human wins |
+|---|---|
+| Asteroids, random throws | 5/6 |
+| Asteroids, aimed throws | 6/6 |
+| Breakout Versus, predicting player | 4/6 |
+| Missile Command, random attack | 6/6 |
+| Missile Command, focused attack | 5/6 |
+| Pong Ball Bender, random bending | 1/6 |
+| Pong Ball Bender, well-timed bending | 6/6 |
+| Snake, random apples | 0/6 |
+| Snake, trapping apples | 3/6 |
+| Splat, lazy layout | 0/6 |
+| Splat, extreme layout | 6/6 |
+
+So planned play usually wins, and careless play can still lose.
+
+### 8. A menu that isn't a grid of tiles
+**Asked:** Make the interface a lot more innovative than a bunch of tiles, and push each change so it deploys.
+
+**Produced:** The menu is now a cocktail table.
+- A reel of games across the top.
+- A live attract-mode demo of the selected game on the table's screen (`js/attract.js`).
+- Two seats at the ends. Player 1's end is the classic mode. Player 2's end is the flipped mode, and its panel reads upside down (like the far side of a real cocktail table) until you reach for it, when the table turns to face that side.
+- Arrow keys, Enter / Shift+Enter, and swipe on phones.
+
+**Bug found and fixed:** a seat label was drawn huge because a more specific CSS rule overrode its size.
+
+**Verified by Claude:** Screenshots at desktop and phone width. Selecting games and the table turn both worked. No sideways scroll on phones and no console errors.
+
+### 9. Make it look like a physical object
+**Asked:** Make it look more like a physical object instead of a digital page.
+
+**Produced:**
+- A dim arcade room with patterned carpet and ceiling spotlights.
+- Walnut laminate, colored plastic edging, and a brushed-aluminium marquee frame with screws.
+- Glass glare and cast shadows.
+- Paper instruction cards, domed buttons and ball-top joysticks, game cartridges in a rack, and a coin door with flashing INSERT COIN lamps.
+
+**Fixed after review:** the grain texture made the paper cards look dirty, and "SIT HERE" wrapped onto two lines.
+
+**Verified by Claude:** Screenshots of the menu, a game screen and the coin door at laptop size.
+
+### 10. Cartridge art
+**Asked:** Make little graphics for the cartridges.
+
+**Produced:** A 16×10 pixel-art picture on each cartridge label, stored as text grids in `js/attract.js` (one letter per pixel), plus a paper number tag. Claude also moved the Breakout demo's bricks down, because they sat under the title.
+
+**Verified by Claude:** A screenshot of the reel with all the art, and no console errors.
+
+### 11. (me) Hands-on playtest
 - [ ] Played every mode on both sides; notes:
 - [ ] Imitation between two different computers/phones:
 - [ ] Anything I changed afterwards:
 
-### 5. (me) Deploy
-- [ ] GitHub repo created and pushed:
+### 12. (me) Deploy
+- [x] GitHub repo created by me; Claude pushed it (see 4): https://github.com/disaacs-lcm/cocktail-cabinet
 - [ ] Netlify site connected to the repo (auto-deploys on push):
 - [ ] Custom domain / subdomain added and HTTPS working:
 - [ ] Opened the site in a private window, not signed in:
