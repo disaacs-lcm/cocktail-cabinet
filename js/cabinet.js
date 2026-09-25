@@ -112,7 +112,7 @@
 
   function buildMenu() {
     el.menu.innerHTML = `
-      <h2 class="select-title">PICK A GAME &middot; PICK A SIDE</h2>
+      <h2 class="select-title"><span>PICK A GAME &middot; PICK A SIDE</span></h2>
       <div class="reel">
         <button class="reel-arrow" type="button" data-dir="-1" aria-label="Previous game">&#9664;</button>
         <div class="reel-track" role="tablist" aria-label="Games"></div>
@@ -125,8 +125,9 @@
             <canvas id="attract" width="480" height="360"></canvas>
             <div class="attract-title"></div>
             <div class="crt"></div>
+            <div class="glare"></div>
           </div>
-          <span class="coin-slot"></span>
+          <span class="coin-slot"><span>25&cent;</span></span>
         </div>
         <button class="seat seat-p2" type="button" data-seat="1"></button>
       </div>
@@ -139,7 +140,9 @@
       chip.className = 'chip';
       chip.setAttribute('role', 'tab');
       chip.style.setProperty('--c', g.color);
-      chip.innerHTML = `<span>${String(i + 1).padStart(2, '0')}</span>${U.esc(g.name)}`;
+      chip.dataset.name = g.name;                      // printed on the cartridge label (CSS)
+      chip.setAttribute('aria-label', g.name);
+      chip.innerHTML = `<span>${String(i + 1).padStart(2, '0')}</span>`;
       chip.onclick = () => selectGame(i);
       track.appendChild(chip);
     });
@@ -186,12 +189,14 @@
       const seat = el.menu.querySelector(`[data-seat="${k}"]`);
       seat.innerHTML = `
         <span class="seat-in">
-          <span class="seat-tag">${k === 0 ? 'P1 SEAT' : 'P2 SEAT'} &middot; ${k === 0 ? 'CLASSIC' : 'FLIPPED'}</span>
-          <b>${U.esc(m.name)}</b>
-          <span><i>YOU</i> ${U.esc(m.you)}</span>
-          <span><i>CPU</i> ${U.esc(m.cpu)}</span>
-          <span class="seat-go">SIT HERE</span>
-          <span class="seat-deco"><span class="stick"></span><span class="buttons"><i></i><i></i></span></span>
+          <i class="screw tl"></i><i class="screw tr"></i><i class="screw bl"></i><i class="screw br"></i>
+          <span class="seat-card">
+            <span class="seat-tag">${k === 0 ? 'PLAYER 1 SIDE' : 'PLAYER 2 SIDE'} &middot; ${k === 0 ? 'CLASSIC' : 'FLIPPED'}</span>
+            <b>${U.esc(m.name)}</b>
+            <span><em>YOU</em> ${U.esc(m.you)}</span>
+            <span><em>CPU</em> ${U.esc(m.cpu)}</span>
+          </span>
+          <span class="seat-hw"><span class="stick"></span><span class="seat-go">SIT HERE</span><span class="buttons"><i></i><i></i></span></span>
         </span>`;
       seat.setAttribute('aria-label', `${g.name}, ${m.name}: you ${m.you}; computer ${m.cpu}`);
     });

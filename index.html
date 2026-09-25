@@ -7,12 +7,13 @@
   <meta name="description" content="Seven arcade games, each playable by a human or the computer on either side of the table.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&family=Oswald:wght@500;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
   <header class="marquee">
     <div class="marquee-box">
+      <i class="screw tl"></i><i class="screw tr"></i><i class="screw bl"></i><i class="screw br"></i>
       <div class="marquee-bar"><span>1UP</span><span class="blink">FREE PLAY</span><span>2UP</span></div>
       <h1><a href="#"><span>COCKTAIL</span><span>CABINET</span></a></h1>
       <p class="tagline">7 GAMES &middot; 2 SIDES &middot; 1 TABLE</p>
@@ -30,6 +31,7 @@
       </div>
       <button id="btn-pause" class="btn ghost" type="button">PAUSE</button>
     </div>
+    <div class="cabinet">
     <div class="bezel" id="bezel">
       <canvas id="screen" width="800" height="600" tabindex="0" aria-label="Game screen"></canvas>
       <div id="dom-layer" class="dom-layer" hidden></div>
@@ -37,15 +39,21 @@
       <div class="crt" aria-hidden="true"></div>
     </div>
     <div class="control-panel">
+      <i class="screw tl"></i><i class="screw tr"></i><i class="screw bl"></i><i class="screw br"></i>
       <span class="stick" aria-hidden="true"></span>
-      <p id="help" class="help"></p>
+      <div class="help-card"><span class="help-card-head">HOW TO PLAY</span><p id="help" class="help"></p></div>
       <span class="buttons" aria-hidden="true"><i></i><i></i></span>
+    </div>
     </div>
   </section>
 
   <footer class="foot">
-    <p class="blink">INSERT COIN</p>
-    <p>&copy;198X COCKTAIL CABINET &middot; EVERY CPU PLAYER USES YOUR CONTROLS AND YOUR PHYSICS</p>
+    <div class="coin-door" aria-hidden="true">
+      <i class="screw tl"></i><i class="screw tr"></i><i class="screw bl"></i><i class="screw br"></i>
+      <div class="coin-mech"><span class="coin-lamp">INSERT COIN</span><span class="coin-reject"></span><span class="coin-price">25&cent;</span></div>
+      <div class="coin-mech"><span class="coin-lamp">INSERT COIN</span><span class="coin-reject"></span><span class="coin-price">25&cent;</span></div>
+    </div>
+    <p class="fine-print">&copy;198X COCKTAIL CABINET &middot; EVERY CPU PLAYER USES YOUR CONTROLS AND YOUR PHYSICS</p>
   </footer>
 
   <!-- PeerJS: WebRTC data channels for Imitation's two-browser play (public broker, no API key) -->
