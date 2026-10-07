@@ -20,7 +20,8 @@
     return lo + m;
   }
 
-  function cpuPaddle(side) {
+  // readError: how badly it misjudges each ball at skill 0 (px, one standard deviation).
+  function cpuPaddle(side, readError) {
     let think = 0, target = (TOP + BOT) / 2, wasComing = false, misread = 0, aimOff = 0;
     return {
       update(p, ball, skill, dt) {
@@ -28,12 +29,12 @@
         if (coming && !wasComing) {
           // One read per incoming ball, the way a player commits: a misjudgement that
           // doesn't vanish as the ball arrives, plus an off-centre hit to angle the return.
-          misread = U.gauss((1 - skill) * 48);
+          misread = U.gauss((1 - skill) * readError + Math.max(0, ball.speed - 560) * 0.08); // fast balls are harder to read
           aimOff = U.rand(-0.3, 0.3) * PH * skill;
         }
         wasComing = coming;
         if ((think -= dt) <= 0) {
-          think = U.lerp(0.32, 0.06, skill) + U.rand(0, 0.05);
+          think = U.lerp(0.22, 0.05, skill) + U.rand(0, 0.04);
           if (coming) {
             const lineX = side === 'left' ? PX + PW + BR : W - PX - PW - BR;
             const t = (lineX - ball.x) / ball.vx;
@@ -43,7 +44,7 @@
             target = U.lerp((TOP + BOT) / 2, ball.y, 0.3);
           }
         }
-        const maxV = U.lerp(260, 640, skill);
+        const maxV = U.lerp(340, 680, skill);
         p.y += U.clamp(target - p.y, -maxV * dt, maxV * dt);
         p.y = U.clamp(p.y, TOP + PH / 2, BOT - PH / 2);
       },
@@ -82,11 +83,12 @@
     create(api) {
       const flip = api.mode === 'flip';
       const L = { y: (TOP + BOT) / 2 }, R = { y: (TOP + BOT) / 2 };
-      const cpuL = cpuPaddle('left'), cpuR = cpuPaddle('right');
+      const readError = flip ? 44 : 30;
+      const cpuL = cpuPaddle('left', readError), cpuR = cpuPaddle('right', readError);
       const ball = { x: W / 2, y: (TOP + BOT) / 2, vx: 0, vy: 0, speed: 0 };
       let you = 0, cpu = 0, serveT = 1.2, rally = 0, meter = 1, bending = 0, useMouse = false;
       let flash = '', flashT = 0;
-      const skill = () => (flip ? Math.min(0.14 + (you + cpu) * 0.06, 0.85) : Math.min(0.2 + (you + cpu) * 0.05, 0.85));
+      const skill = () => (flip ? Math.min(0.12 + (you + cpu) * 0.06, 0.85) : Math.min(0.45 + (you + cpu) * 0.05, 0.9));
 
       function serve(dir) {
         ball.x = W / 2; ball.y = U.rand(TOP + 80, BOT - 80);
