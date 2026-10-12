@@ -14,7 +14,10 @@
   const CITY_X = [150, 225, 300, 500, 575, 650];
   const BAT_X = [50, 400, 750];
   const BAT_SPEED = [420, 620, 420];     // centre battery is faster, as in the original
-  const AMMO = 10, BLAST_R = 40, CHAIN_R = 20, WAVES = 7;
+  const BLAST_R = 40, CHAIN_R = 20, WAVES = 7;
+  // Ammo per battery at the start of each wave. When you defend (classic) every living
+  // battery also regains 1 shot every REFILL_EVERY seconds, up to its starting amount.
+  const AMMO = { classic: 15, flip: 10 }, REFILL_EVERY = 6;
 
   function blastRadius(e) {
     const T = e.t;
@@ -105,10 +108,12 @@
         id: 'classic', name: 'Classic',
         you: 'command the three batteries',
         cpu: 'attacks your cities',
+        win: `Keep at least one city standing through all ${WAVES} waves.`,
         intro: [
           'Click where you want an interceptor to explode. The nearest battery with ammo fires.',
           'Blasts destroy missiles, and a destroyed missile blows up too, so blasts can chain.',
-          `Survive ${WAVES} waves with at least one city. Attacks get faster, and from wave 3 missiles split.`,
+          `Each battery holds ${AMMO.classic} shots (number under it) and regains 1 every ${REFILL_EVERY}s. Destroyed batteries are rebuilt each wave; cities are not.`,
+          'Each wave is a little faster and bigger. From wave 4 some missiles split in three.',
         ],
         help: 'Click to fire · P pauses',
       },
@@ -116,6 +121,7 @@
         id: 'flip', name: 'Flipped',
         you: 'launch the attack',
         cpu: 'commands the batteries',
+        win: `Destroy all six cities before the ${WAVES} waves run out.`,
         intro: [
           'Drag from the sky down to a target to launch a missile, or just click a target for a random launch point.',
           'From wave 2, hold Shift while releasing to fire a splitter (costs 3). It breaks into three halfway down.',
@@ -128,28 +134,32 @@
     create(api) {
       const flip = api.mode === 'flip';
       const cities = CITY_X.map((x) => ({ x, alive: true }));
-      const batteries = BAT_X.map((x) => ({ x, alive: true, ammo: AMMO }));
+      const maxAmmo = flip ? AMMO.flip : AMMO.classic;
+      const batteries = BAT_X.map((x) => ({ x, alive: true, ammo: maxAmmo }));
+      let refillT = 0;
       const missiles = [], interceptors = [], explosions = [], trails = [];
       const defender = flip ? aiDefender() : null;
       let wave = 0, waveT = 0, state = 'intro', stateT = 1.4, score = 0;
       let schedule = [], budget = 0, launchCd = 0, drag = null, msg = '', msgT = 0;
       const WAVE_TIME = 28;
 
-      const mSpeed = () => (flip ? 52 + wave * 16 : 40 + wave * 10);
-      const splitOK = () => (flip ? wave >= 2 : wave >= 3);
-      function say(m) { msg = m; msgT = 1.5; }
+      const mSpeed = () => (flip ? 52 + wave * 16 : 44 + wave * 7);
+      const splitOK = () => (flip ? wave >= 2 : wave >= 4);
+      function say(m) { msg = m; msgT = 1.5; Cab.sfx('error'); }
 
       function startWave() {
         wave++;
         waveT = 0;
         state = 'play';
-        for (const b of batteries) { b.alive = true; b.ammo = AMMO; }
+        for (const b of batteries) { b.alive = true; b.ammo = maxAmmo; }
+        refillT = 0;
+        Cab.sfx('level');
         if (flip) budget = 13 + (wave - 1) * 6;
         else {
           // The computer attacker's plan for this wave: a list of launch times.
-          const n = 7 + Math.round(wave * 2.5);
+          const n = 8 + wave * 2;
           schedule = [];
-          for (let i = 0; i < n; i++) schedule.push(U.rand(0.5, 14 + wave * 1.5));
+          for (let i = 0; i < n; i++) schedule.push(U.rand(0.5, 16 + wave * 2));
           schedule.sort((a, b) => a - b);
         }
       }
@@ -167,7 +177,7 @@
         const targets = structures();
         if (!targets.length) return;
         const t = Math.random() < 0.72 && cities.some((c) => c.alive) ? U.pick(cities.filter((c) => c.alive)) : U.pick(targets);
-        const split = splitOK() && Math.random() < 0.15 + wave * 0.04;
+        const split = splitOK() && Math.random() < 0.08 + (wave - 4) * 0.04;
         launch(U.rand(20, W - 20), t.x + U.rand(-12, 12), split);
       }
 
@@ -176,6 +186,7 @@
         const b = batteries[i];
         if (!b.alive || b.ammo <= 0 || y > GROUND - 20) return false;
         b.ammo--;
+        Cab.sfx('shoot');
         interceptors.push({ ox: b.x, oy: GROUND - 14, x: b.x, y: GROUND - 14, tx: x, ty: y, v: BAT_SPEED[i] });
         return true;
       }
@@ -195,15 +206,17 @@
         launchCd = 0.2;
         const ox = y0 < 90 ? x0 : U.rand(20, W - 20);
         launch(U.clamp(ox, 10, W - 10), U.clamp(x1, 10, W - 10), split);
+        Cab.sfx('launch');
       }
 
       function detonate(x, y, friendly, maxR) {
         explosions.push({ x, y, t: 0, maxR, friendly });
+        Cab.sfx(friendly ? 'pop' : 'explode');
       }
 
       function groundHit(m) {
         detonate(m.tx, GROUND - 4, false, 30);
-        for (const c of cities) if (c.alive && Math.abs(c.x - m.tx) < 28) { c.alive = false; if (flip) score += 100; }
+        for (const c of cities) if (c.alive && Math.abs(c.x - m.tx) < 28) { c.alive = false; Cab.sfx('boom'); if (flip) score += 100; }
         for (const b of batteries) if (b.alive && Math.abs(b.x - m.tx) < 26) { b.alive = false; b.ammo = 0; }
       }
 
@@ -235,6 +248,13 @@
             if (stateT <= 0) startWave();
           } else {
             waveT += dt;
+            // Classic: living batteries slowly reload during a wave.
+            if (!flip && (refillT += dt) >= REFILL_EVERY) {
+              refillT = 0;
+              let any = false;
+              for (const b of batteries) if (b.alive && b.ammo < maxAmmo) { b.ammo++; any = true; }
+              if (any) Cab.sfx('place');
+            }
             if (flip) defender.update(dt, { missiles, batteries, cities, explosions }, fire);
             else while (schedule.length && schedule[0] <= waveT) { schedule.shift(); cpuAttack(); }
           }
@@ -247,6 +267,7 @@
             if (d <= step) { missiles.splice(i, 1); trails.push({ ...m, fade: 1 }); groundHit(m); continue; }
             m.x += ((m.tx - m.x) / d) * step; m.y += ((m.ty - m.y) / d) * step;
             if (m.split && m.y >= m.splitY) {
+              Cab.sfx('warn');
               missiles.splice(i, 1);
               trails.push({ ...m, fade: 1 });
               for (const off of [-95, 0, 95]) {
@@ -364,6 +385,12 @@
             D.text(g, 'LAUNCH ZONE', 10, 76, 8, '#ff5d6c88');
           } else {
             D.hud(g, [`WAVE ${Math.max(wave, 1)}/${WAVES}`, `SCORE ${score}`, `CITIES ${alive}`]);
+            // reload timer: every battery +1 shot when the bar fills
+            if (state === 'play') {
+              D.text(g, 'RELOAD +1', W / 2 - 58, 27, 8, '#5dff9b', 'right');
+              g.fillStyle = '#222'; g.fillRect(W / 2 - 50, 27, 100, 6);
+              g.fillStyle = '#5dff9b'; g.fillRect(W / 2 - 50, 27, 100 * (refillT / REFILL_EVERY), 6);
+            }
           }
           if (state !== 'play') D.text(g, `WAVE ${wave + 1}`, W / 2, H / 2 - 40, 20, '#ff5d6c', 'center');
           if (msgT > 0) D.text(g, msg, W / 2, H / 2, 12, '#ffd23e', 'center');
