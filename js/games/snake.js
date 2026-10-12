@@ -12,6 +12,14 @@
   const idx = (x, y) => y * GW + x;
   const inb = (x, y) => x >= 0 && y >= 0 && x < GW && y < GH;
   const CLASSIC_GOAL = 40, FLIP_GOAL = 30;
+  // Flipped: the computer snake's risk-taking and how many spare moves it gets per apple.
+  const CPU_GREED = 0.05, SLACK_START = 26, SLACK_MIN = 18;
+  // Autopilot only (Node balance runs): how the computer models a typical human on the
+  // human's side. Steering: skips the safety check more often, and sometimes turns one
+  // cell too late (keeps going straight) - more often the faster the snake moves, like a
+  // person reacting to a speeding snake. Placing: thinks for a moment, then picks an
+  // awkward, trap-ish cell (the classic computer placer's level-6 choice).
+  const HUMAN_MODEL = { greedy: 0.3, lateTurn: 0.006, placeDelay: 1.5, trapping: 6 };
 
   // ------------------------------------------------------------ grid helpers
   function bodyGrid(snake, tailMoves) {
@@ -124,14 +132,15 @@
     return best;
   }
 
-  function aiMove(s) {
+  // greedyP: chance per decision of skipping the safety check (the computer uses 0.12).
+  function aiMove(s, greedyP = 0.12) {
     const head = s.snake[0];
     if (s.apple) {
       const path = bfs(head.x, head.y, bodyGrid(s.snake, s.grow === 0), s.apple);
       if (path) {
         const desperate = s.hunger - path.length <= 3;
         // Now and then it gets greedy and skips the safety check, as a person would.
-        const greedy = Math.random() < 0.12;
+        const greedy = Math.random() < greedyP;
         if (desperate || greedy || tailReachableAfter(s, path)) return path[0];
       }
     }
@@ -216,7 +225,10 @@
         hungerMax: 1,
       };
       const queue = [];
-      let eaten = 0, acc = 0, ready = 1.2, dead = false, flash = '', flashT = 0;
+      const auto = api.autopilot;
+      // ?level=N starts as if 5*(N-1) apples were already eaten (the snake grows to match).
+      let eaten = (api.level - 1) * 5, acc = 0, ready = 1.2, dead = false, flash = '', flashT = 0;
+      s.grow = eaten * GROW;
       let waitT = 0;            // flip: how long the human has been choosing
       let aiLabel = '';
 
@@ -230,16 +242,17 @@
         waitT = 0;
         if (byHuman) Cab.sfx('place');
         if (flip) {
-          // Hunger: shortest distance plus some slack. Slack shrinks from 26 to 5 moves.
+          // Hunger: straight-line grid distance (ignoring the body) plus some slack, which
+          // shrinks by one move per apple. An apple hidden behind the snake's own body
+          // forces a detour it may not have the moves for - that's the trap.
           const head = s.snake[0];
-          const p = bfs(head.x, head.y, bodyGrid(s.snake, s.grow === 0), c);
-          const slack = Math.max(5, 26 - eaten);
-          s.hungerMax = s.hunger = (p ? p.length : 20) + slack;
+          const slack = Math.max(SLACK_MIN, SLACK_START - eaten);
+          s.hungerMax = s.hunger = Math.abs(c.x - head.x) + Math.abs(c.y - head.y) + slack;
           if (!byHuman) say('Too slow — random apple');
         }
       }
 
-      if (!flip) placeApple(cpuPlace(s, 1));
+      if (!flip) placeApple(cpuPlace(s, level()));
 
       function tryHumanPlace(x, y) {
         const cx = Math.floor(x / C), cy = Math.floor((y - OY) / C);
@@ -252,8 +265,13 @@
 
       function step() {
         let next;
-        if (flip) {
-          next = aiMove(s);
+        if (flip || auto) {
+          next = aiMove(s, flip ? CPU_GREED : HUMAN_MODEL.greedy);
+          const head0 = s.snake[0];
+          const turning = next && (next.x - head0.x !== s.dir.x || next.y - head0.y !== s.dir.y);
+          if (!flip && turning && Math.random() < HUMAN_MODEL.lateTurn * (rate() / 7) ** 2) {
+            next = { x: head0.x + s.dir.x, y: head0.y + s.dir.y };   // turned a cell too late
+          }
           if (!next) { die('The snake boxed itself in'); return; }
           const head = s.snake[0];
           s.dir = { x: next.x - head.x, y: next.y - head.y };
@@ -320,6 +338,10 @@
           if (ready > 0) { ready -= dt; return; }
           if (flip && !s.apple) {
             waitT += dt;
+            if (auto && waitT > HUMAN_MODEL.placeDelay) {
+              const c = cpuPlace(s, HUMAN_MODEL.trapping);   // a player trying to trap it
+              if (c) placeApple(c, true);
+            }
             if (waitT > 6) {
               const cells = reachableEmpty(s).filter((c) => Math.abs(c.x - s.snake[0].x) + Math.abs(c.y - s.snake[0].y) > 3);
               if (cells.length) placeApple(U.pick(cells), false);
@@ -382,6 +404,7 @@
           } else {
             D.hud(g, [`APPLES ${eaten}/${CLASSIC_GOAL}`, `LEVEL ${level()}`, `LEN ${n}`]);
           }
+          D.testTag(g, api.level);
           if (ready > 0) D.text(g, 'READY', W / 2, H / 2 - 10, 20, '#5dff9b', 'center');
           if (flashT > 0) D.text(g, flash, W / 2, 50, 12, '#ffd23e', 'center');
         },
