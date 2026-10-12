@@ -14,6 +14,7 @@
   const COST = { 3: 3, 2: 2, 1: 1 };
   const MAX_ROCK_V = { 1: 190, 2: 150 };
   const MASS = { 3: 7, 2: 3, 1: 1 };           // a big rock is 7 hits' worth once it splits
+  const MAX_SHIPS = 5;
   const WAVE_LEN = 35, FLIP_WAVES = 6, CLASSIC_WAVES = 6, EDGE = 56;
 
   const wd = (d, m) => { d = U.wrap(d + m / 2, m) - m / 2; return d; }; // shortest wrapped delta
@@ -50,7 +51,7 @@
       x += vx * dt; y += vy * dt;
       for (const r of rs) {
         r.x += r.vx * dt; r.y += r.vy * dt;
-        const d = Math.hypot(wd(r.x - x, W), wd(r.y - y, H)) - r.r * 0.9 - SHIP_R * 0.8;
+        const d = Math.hypot(wd(r.x - x, W), wd(r.y - y, H)) - r.r * 0.85 - SHIP_R * 0.7;
         worst = Math.min(worst, d + t * 30); // near-term danger counts more
       }
     }
@@ -142,9 +143,11 @@
         id: 'classic', name: 'Classic',
         you: 'fly the ship',
         cpu: 'throws asteroids at you, aiming better each wave',
+        win: `Clear all ${CLASSIC_WAVES} waves of rocks before you run out of ships.`,
         intro: [
-          '← → rotate, ↑ thrust, Space fires. The screen edges wrap.',
-          `Clear ${CLASSIC_WAVES} waves to win. You have 3 ships.`,
+          '← → rotate, ↑ thrust, hold Space to fire. The screen edges wrap.',
+          'Big rocks split into two smaller, faster ones. Clear every piece to finish a wave.',
+          `You start with 3 ships and earn one back for each wave you clear (up to ${MAX_SHIPS}). After a crash you're invulnerable for a moment.`,
         ],
         help: '←/→ rotate · ↑ thrust · Space fire · P pauses',
       },
@@ -152,10 +155,11 @@
         id: 'flip', name: 'Flipped',
         you: 'launch the asteroids',
         cpu: 'flies the ship',
+        win: `Destroy the ship 3 times before it survives ${FLIP_WAVES} waves.`,
         intro: [
           'Press near a screen edge and drag inward to aim. Release to launch. Longer drags are faster.',
           'Keys 1 / 2 / 3 pick the rock size (costs 1 / 2 / 3 energy). Energy refills over time.',
-          `Destroy the ship 3 times before it survives ${FLIP_WAVES} waves of ${WAVE_LEN}s. Each wave gives you more energy and faster rocks.`,
+          `Each wave lasts ${WAVE_LEN}s and gives you more energy and faster rocks. The SKY meter caps how much rock can be in play at once.`,
         ],
         help: 'Drag from an edge to launch · 1/2/3 rock size · P pauses',
       },
@@ -174,7 +178,7 @@
       const maxRockV = () => 70 + wave * 22;
       const maxMass = () => 14 + wave * 7;
 
-      function say(m) { msg = m; msgT = 1.4; }
+      function say(m) { msg = m; msgT = 1.4; Cab.sfx('error'); }
       function boom(x, y, n, color) {
         for (let i = 0; i < n; i++) {
           const a = U.rand(0, 6.28), v = U.rand(40, 220);
@@ -193,9 +197,9 @@
           if (Math.random() < 0.5) { x = U.rand(0, W); y = Math.random() < 0.5 ? 0 : H; }
           else { x = Math.random() < 0.5 ? 0 : W; y = U.rand(0, H); }
         } while (U.dist(x, y, ship.x, ship.y) < 250);
-        const spread = U.lerp(1.0, 0.35, (wave - 1) / (CLASSIC_WAVES - 1));
+        const spread = U.lerp(1.1, 0.5, (wave - 1) / (CLASSIC_WAVES - 1));
         const a = Math.atan2(wd(ship.y - y, H), wd(ship.x - x, W)) + U.rand(-spread, spread);
-        const v = U.rand(40, 60) + wave * 10;
+        const v = U.rand(35, 55) + wave * 7;
         rocks.push(makeRock(x, y, Math.cos(a) * v, Math.sin(a) * v, sz));
       }
       if (!flip) cpuWave();
@@ -203,6 +207,7 @@
       function fire() {
         if (!ship.alive || ship.cd > 0 || bullets.length >= MAX_BULLETS) return;
         ship.cd = FIRE_CD;
+        Cab.sfx('shoot');
         bullets.push({
           x: ship.x + Math.cos(ship.a) * SHIP_R, y: ship.y + Math.sin(ship.a) * SHIP_R,
           vx: ship.vx + Math.cos(ship.a) * BULLET_V, vy: ship.vy + Math.sin(ship.a) * BULLET_V, l: BULLET_LIFE,
@@ -213,6 +218,7 @@
         const r = rocks[i];
         rocks.splice(i, 1);
         boom(r.x, r.y, 6 + r.size * 4, '#9c97bd');
+        Cab.sfx(r.size > 1 ? 'explode' : 'pop');
         score += (4 - r.size) * 20;
         if (r.size > 1) {
           for (let k = 0; k < 2; k++) {
@@ -227,6 +233,7 @@
         ship.alive = false;
         ship.respawn = 2;
         lives--;
+        Cab.sfx('boom');
         if (lives <= 0) {
           if (flip) api.end({ win: true, title: 'Ship destroyed. You win!', text: `You took down the pilot in wave ${wave}.`, delay: 1200 });
           else api.end({ win: false, title: 'Game over', text: `You reached wave ${wave} with ${score} points.`, delay: 1200 });
@@ -243,6 +250,7 @@
         const a = len < 8 ? Math.atan2(ship.y - y0, ship.x - x0) + U.rand(-0.6, 0.6) : Math.atan2(y1 - y0, x1 - x0);
         energy -= COST[size];
         rocks.push(makeRock(x0, y0, Math.cos(a) * v, Math.sin(a) * v, size));
+        Cab.sfx('launch');
       }
 
       function onEdge(x, y) { return x < EDGE || y < EDGE || x > W - EDGE || y > H - EDGE; }
@@ -276,7 +284,7 @@
               if (api.keys.has('ArrowLeft') || api.keys.has('KeyA')) turn -= 1;
               if (api.keys.has('ArrowRight') || api.keys.has('KeyD')) turn += 1;
               thrust = api.keys.has('ArrowUp') || api.keys.has('KeyW');
-              wantFire = api.keys.has('Space') && ship.cd <= 0 && bullets.length === 0; // hold = slow auto-fire
+              wantFire = api.keys.has('Space');            // hold to auto-fire at the normal rate
             }
             ship.a += U.clamp(turn, -1, 1) * TURN * dt;
             ship.thrusting = thrust;
@@ -306,7 +314,7 @@
           }
           if (ship.alive && ship.inv <= 0) {
             for (const r of rocks) {
-              if (Math.hypot(wd(r.x - ship.x, W), wd(r.y - ship.y, H)) < r.r * 0.9 + SHIP_R * 0.8) { shipDies(); break; }
+              if (Math.hypot(wd(r.x - ship.x, W), wd(r.y - ship.y, H)) < r.r * 0.85 + SHIP_R * 0.7) { shipDies(); break; }
             }
           }
           for (const s of sparks) { s.x += s.vx * dt; s.y += s.vy * dt; s.l -= dt; }
@@ -320,10 +328,13 @@
             if (waveT >= WAVE_LEN) {
               if (wave >= FLIP_WAVES) return api.end({ win: false, title: 'The pilot survived', text: `It lasted all ${FLIP_WAVES} waves with ${lives} ship${lives === 1 ? '' : 's'} left and scored ${score}. Try crossfire: two rocks from opposite edges at once.` });
               wave++; waveT = 0; banner = 1.6; bannerText = `WAVE ${wave}`;
+              Cab.sfx('level');
             }
           } else if (!rocks.length && ship.alive) {
             if (wave >= CLASSIC_WAVES) return api.end({ win: true, title: 'Sector cleared!', text: `All ${CLASSIC_WAVES} waves cleared with ${score} points.` });
             wave++; banner = 1.6; bannerText = `WAVE ${wave}`;
+            if (lives < MAX_SHIPS) { lives++; bannerText += '  +1 SHIP'; }
+            Cab.sfx('level');
             cpuWave();
           }
         },
@@ -392,6 +403,12 @@
             g.fillStyle = '#222'; g.fillRect(250, 30, 300, 6);
             g.fillStyle = '#3ee6ff'; g.fillRect(250, 30, 300 * e, 6);
             D.text(g, `ENERGY ${energy.toFixed(1)}`, W / 2, 42, 9, '#3ee6ff', 'center');
+            // SKY: how much rock is in play versus the cap for this wave
+            const mass = rocks.reduce((m, r) => m + MASS[r.size], 0);
+            const sky = Math.min(1, mass / maxMass());
+            D.text(g, 'SKY', 600, 30, 8, '#9c97bd', 'right');
+            g.fillStyle = '#222'; g.fillRect(606, 30, 120, 6);
+            g.fillStyle = sky > 0.85 ? '#ff5d6c' : '#c9c4ec'; g.fillRect(606, 30, 120 * sky, 6);
           } else {
             D.hud(g, [`WAVE ${wave}/${CLASSIC_WAVES}`, `SCORE ${score}`, `SHIPS ${livesStr}`]);
           }
