@@ -200,7 +200,7 @@
         <span class="seat-in">
           <i class="screw tl"></i><i class="screw tr"></i><i class="screw bl"></i><i class="screw br"></i>
           <span class="seat-card">
-            <span class="seat-tag">${k === 0 ? 'PLAYER 1 SIDE' : 'PLAYER 2 SIDE'} &middot; ${k === 0 ? 'CLASSIC' : 'FLIPPED'}</span>
+            <span class="seat-tag">${k === 0 ? 'PLAYER 1 SIDE' : 'PLAYER 2 SIDE'} &middot; ${m.seat || (k === 0 ? 'CLASSIC' : 'FLIPPED')}</span>
             <b>${U.esc(m.name)}</b>
             <span><em>YOU</em> ${U.esc(m.you)}</span>
             <span><em>CPU</em> ${U.esc(m.cpu)}</span>

@@ -694,3 +694,48 @@ button { font-family: var(--pixel); }
   .stage-bar { flex-wrap: wrap; justify-content: center; }
   .stage-actions .btn { padding: 6px 8px 7px; font-size: 11px; letter-spacing: 1px; }
 }
+
+/* ---------- P(DOOM) phone gamepad: the control panel becomes real buttons ---------- */
+.pd-pad {
+  display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 12px;
+  margin: 12px -22px 0; padding: 16px 14px;
+  background: var(--panel);
+  border-top: 4px solid #000;
+  box-shadow: inset 0 3px 0 #ffffff1c, inset 0 -3px 0 #0009;
+  touch-action: none; user-select: none; -webkit-user-select: none;
+}
+.pd-pad + .control-panel { display: none; }
+.pd-pad button {
+  touch-action: none; cursor: pointer; border: 0; color: #fff;
+  font-family: var(--label); font-weight: 700; letter-spacing: 1px;
+  -webkit-tap-highlight-color: transparent;
+}
+.pd-dpad { display: grid; grid-template-columns: repeat(3, 46px); grid-template-rows: repeat(3, 46px); }
+.pd-dpad button { background: linear-gradient(180deg, #3a3542, #1b1820); border-radius: 8px; font-size: 18px; box-shadow: 0 3px 0 #000; }
+.pd-dpad [data-d="U"] { grid-area: 1 / 2; } .pd-dpad [data-d="L"] { grid-area: 2 / 1; }
+.pd-dpad [data-d="R"] { grid-area: 2 / 3; } .pd-dpad [data-d="D"] { grid-area: 3 / 2; }
+.pd-combos { display: grid; gap: 6px; }
+.pd-combos button {
+  display: flex; justify-content: space-between; align-items: center; gap: 6px;
+  padding: 7px 10px; border-radius: 6px; font-size: 11px;
+  background: #0b0716; box-shadow: inset 0 0 0 2px #ff4fd8;
+}
+.pd-combos span { color: var(--yellow); font-family: Inter, system-ui, sans-serif; font-size: 14px; }
+.pd-btns { display: grid; grid-template-columns: repeat(2, 64px); gap: 10px; }
+.pd-btns button {
+  width: 64px; height: 64px; border-radius: 50%; font-size: 11px;
+  box-shadow: 0 0 0 3px #111, 0 0 0 5px #4a4a4a, 0 5px 6px #000c, inset 0 -4px 5px #0006;
+  text-shadow: 0 1px 1px #0008;
+}
+.pd-p { background: radial-gradient(circle at 40% 32%, #ffb3bb, #ff5d6c 45%, #a0182a 78%); }
+.pd-k { background: radial-gradient(circle at 40% 32%, #d6fdff, #29c8d6 45%, #07727b 78%); }
+.pd-blk { background: radial-gradient(circle at 40% 32%, #e2def0, #8a84a3 45%, #46405a 78%); }
+.pd-sup { background: radial-gradient(circle at 40% 32%, #6b6450, #4a4535 45%, #2a2619 78%); color: #ffffff66 !important; }
+.pd-super-ready .pd-sup { background: radial-gradient(circle at 40% 32%, #fffbd0, #ffe74a 42%, #a88600 78%); color: #111 !important; animation: blink .5s steps(1) infinite; }
+.pd-pad button.on { transform: translateY(3px); filter: brightness(1.3); }
+@media (max-width: 600px) {
+  .pd-pad { margin: 10px -10px 0; padding: 12px 8px; gap: 8px; grid-template-columns: auto auto; }
+  .pd-combos { grid-column: 1 / -1; grid-row: 2; grid-template-columns: repeat(3, 1fr); }
+  .pd-combos button { flex-direction: column; padding: 6px 4px; font-size: 9px; }
+  .pd-btns { justify-self: end; }
+}

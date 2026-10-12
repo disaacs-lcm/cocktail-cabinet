@@ -139,6 +139,35 @@
     },
   };
 
+  // P(DOOM): a doomer and a bot trade punches while the meter swings.
+  A.pdoom = function (g, t, W, H, c) {
+    const P = 6;                                           // one "pixel"
+    const px = (x, y, w, h, col) => { g.fillStyle = col; g.fillRect(x * P, y * P, w * P, h * P); };
+    g.fillStyle = '#0b0623'; g.fillRect(0, 0, W, H);
+    for (let i = 0; i < 30; i++) { g.fillStyle = '#ffffff55'; g.fillRect((i * 97) % W, (i * 41) % 200, 2, 2); }
+    px(0, 50, 80, 10, '#1a1426');
+    const beat = Math.floor(t * 2) % 2, hit = (t * 2) % 1 < 0.35;
+    // doomer (left)
+    const dx = 22, dy = 50;
+    px(dx, dy - 12, 3, 12, '#2c3350'); px(dx + 4, dy - 12, 3, 12, '#2c3350');
+    px(dx - 1, dy - 24, 10, 12, '#4b4b58'); px(dx + 3, dy - 21, 2, 4, '#e8463a');
+    px(dx + 1, dy - 31, 7, 7, '#f0c8a0'); px(dx, dy - 32, 9, 2, '#33333d');
+    if (beat === 0 && hit) px(dx + 9, dy - 22, 10, 3, '#33333d'), px(dx + 19, dy - 23, 3, 4, '#f0c8a0');
+    // bot (right)
+    const bx = 52;
+    px(bx, dy - 12, 3, 12, '#0b6e56'); px(bx + 4, dy - 12, 3, 12, '#0b6e56');
+    px(bx - 1, dy - 24, 10, 12, '#10a37f'); px(bx, dy - 32, 8, 8, '#f2f2f2');
+    if (beat === 1 && hit) px(bx - 11, dy - 22, 11, 3, '#0b6e56');
+    // the meter
+    const m = 0.5 + Math.sin(t * 1.3) * 0.35;
+    g.fillStyle = '#000'; g.fillRect(60, 58, W - 120, 22);
+    const gr = g.createLinearGradient(64, 0, W - 64, 0);
+    gr.addColorStop(0, '#3dff7a'); gr.addColorStop(0.5, '#ffe74a'); gr.addColorStop(1, '#ff3b4f');
+    g.fillStyle = gr; g.fillRect(64, 62, W - 128, 14);
+    g.fillStyle = '#fff'; g.fillRect(64 + (W - 128) * m - 3, 58, 6, 22);
+    txt(g, `P(DOOM) ${Math.round(m * 100)}%`, W / 2, 94, 10, '#fff');
+  };
+
   Cab.attract = function draw(id, g, t, W, H, color) {
     g.save();
     g.fillStyle = '#000'; g.fillRect(0, 0, W, H);
@@ -230,6 +259,18 @@
       '......c...cc...c',
       '......c....c...c',
       '......cccccccccc',
+    ],
+    pdoom: [
+      '................',
+      '..ss.........ww.',
+      '.skks.......wggw',
+      '..kk..ppp...wggw',
+      '.ssss.....gggggg',
+      '.srss.......gg..',
+      '.ssss.......gg..',
+      '..b.b.......g.g.',
+      '..b.b.......g.g.',
+      'kkkkkkkkkkkkkkkk',
     ],
     pong: [
       '.......w........',

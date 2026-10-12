@@ -1,6 +1,6 @@
 # Cocktail Cabinet
 
-Seven arcade games on one static page. In every game a human or the computer can take either side.
+Seven two-sided arcade games plus an original eighth, **P(DOOM)**, on one static page. In the seven classics a human or the computer can take either side.
 
 Plain HTML, CSS and JavaScript. No build step, no server code, no API keys.
 
@@ -13,6 +13,29 @@ Plain HTML, CSS and JavaScript. No build step, no server code, no API keys.
 | Missile Command | You defend. The computer attacks. | You attack with a missile budget. The computer manages the batteries. |
 | Imitation | Chat, then guess: human or AI? You're matched with another browser, or with the computer. | The computer interrogates you and judges whether you're human. |
 | Pong (our pick) | You play a paddle against the computer. | **Ball Bender:** the computer plays both paddles. You curve the ball past them. |
+
+## P(DOOM): the original game
+
+You're a doomer in a hoodie, brawling through the AI models (ChatGPT, Gemini, Copilot, Llama, Grok, Claude) and then AGI. Source: `js/games/pdoom.js`.
+
+- **One meter instead of two health bars.** P(DOOM) starts each fight at 50%. Your hits push it down, theirs push it up. 0% wins the fight, 100% loses it, and when the 60 s clock ends, whichever side of 50% it's on decides.
+- **Every opponent fights with its model's quirk:**
+
+  | Opponent | Quirk |
+  |---|---|
+  | ChatGPT | Hallucinates fake attacks |
+  | Gemini | Sends a twin in behind you |
+  | Copilot | Autocompletes your last three attacks back at you |
+  | Llama | Forgets to block after 4 blocked hits (short context) |
+  | Grok | Rushes wildly |
+  | Claude | Won't engage while you're aggressive |
+  | AGI | Patches your favourite move until you switch it up |
+
+  A "model card" before each fight explains how to beat it.
+- **Pick up and play:** punch, kick, block, and three on-screen combos (↓→P, ←→K, PPK). Click or tap a combo card to fire it. Fill HOPE, then Z+X for the OFF SWITCH super. Mashing wins the early fights; later fights punish it (blocks, counters, a combo breaker).
+- **Phones:** the cabinet's control panel turns into a gamepad (d-pad, buttons, combo buttons).
+- **Modes:** Arcade (7 fights, 3 continues, high score saved) and Training (pick any opponent, no clock).
+- Drawn on a 200×150 canvas scaled 4× for real pixels. Parody: not affiliated with OpenAI, Google, Microsoft, Meta, xAI or Anthropic.
 
 ## How the computer plays
 
@@ -44,6 +67,7 @@ Add `?level=N` to the address, before the `#`. A red **TEST LEVEL N** tag shows 
 | Missile Command | starts at wave N (max 7) | `/?level=6#/missile/classic` |
 | Pong | serves each rally 80×(N−1) px/s faster | `/?level=5#/pong/classic` |
 | Imitation | Who's there?: bot level N (max 4). Prove it: judge round N | `/?level=4#/imitation/flip` |
+| P(DOOM) | starts at fight N (7 = AGI) | `/?level=7#/pdoom/arcade` |
 
 Remove `?level=N` (or use `?level=1`) for normal play.
 
