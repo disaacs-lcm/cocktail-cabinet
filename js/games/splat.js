@@ -12,7 +12,13 @@
   const { U, D, W, H } = Cab;
   const G = 1500, FLAP = -440, BX = 180, BR = 13;
   const CW = 70, SPACING = 270, GROUND = H - 40, CEIL = 34;
-  const GOAL = 40;
+  // Each mode has its own difficulty curve: values go from the first number to the
+  // second over `over` columns. reach is the fraction of the bird's physical climbing
+  // limit that a gap is allowed to jump (1 = as far as a perfect flapper can manage).
+  const CURVES = {
+    classic: { over: 40, speed: [160, 250], gap: [200, 142], reach: [0.4, 0.85], goal: 30 },
+    flip:    { over: 20, speed: [180, 290], gap: [175, 118], reach: [0.75, 1],   goal: 30 },
+  };
   const REACTION_FRAMES = 4, FLAP_COOLDOWN = 0.1;
 
   // How far can the bird climb in t seconds if it flaps at every peak?
@@ -26,18 +32,18 @@
     return -y;
   }
 
-  function course(passed) {
-    const k = Math.min(passed / 30, 1);             // 0 -> 1 over 30 columns
+  function course(passed, cv) {
+    const k = Math.min(passed / cv.over, 1);
     return {
-      speed: U.lerp(170, 290, k),
-      gap: U.lerp(185, 122, k),
-      reach: U.lerp(0.45, 1, k),                     // fraction of the physical limit allowed
+      speed: U.lerp(cv.speed[0], cv.speed[1], k),
+      gap: U.lerp(cv.gap[0], cv.gap[1], k),
+      reach: U.lerp(cv.reach[0], cv.reach[1], k),
     };
   }
 
   // The legal range for the next gap centre given the previous one.
-  function allowedRange(prevY, passed) {
-    const c = course(passed);
+  function allowedRange(prevY, passed, cv) {
+    const c = course(passed, cv);
     const t = (SPACING - CW - BR * 2) / c.speed;
     const up = (climb(t) * 0.8 + c.gap * 0.3) * c.reach;
     const down = up * 1.3;
@@ -128,9 +134,11 @@
         id: 'classic', name: 'Classic',
         you: 'flap the bird',
         cpu: 'lays out the columns',
+        win: `Fly through ${CURVES.classic.goal} columns without touching a column or the ground.`,
         intro: [
           'Space, ↑ or click to flap.',
-          `Pass ${GOAL} columns to win. Gaps narrow, and the course speeds up and swings harder as you go.`,
+          'Each flap gives a short hop. Tap in a rhythm rather than holding.',
+          'Gaps start wide and slowly narrow; the course speeds up and swings harder as you go.',
         ],
         help: 'Space / ↑ / click to flap · P pauses',
       },
@@ -138,10 +146,11 @@
         id: 'flip', name: 'Flipped',
         you: 'lay out the columns',
         cpu: 'flaps the bird',
+        win: `Make the bird crash before it clears ${CURVES.flip.goal} columns.`,
         intro: [
           'Move the mouse (or ↑/↓) to set the next gap. It locks when the column enters.',
           'The gap must stay inside the bracket: what a bird can physically reach.',
-          `Splat the bird before it clears ${GOAL} columns. Your bracket widens and the gaps narrow as it goes.`,
+          'Big swings right after a narrow gap are the bird’s weak spot. Your bracket widens and the gaps narrow as it goes.',
         ],
         help: 'Mouse / ↑↓ positions the next gap · P pauses',
       },
@@ -151,7 +160,9 @@
       const flip = api.mode === 'flip';
       const bird = { y: H / 2 - 40, vy: 0, rot: 0 };
       const columns = [];
-      const ai = flip ? aiFlapper(0.35) : null;
+      const cv = flip ? CURVES.flip : CURVES.classic;
+      const GOAL = cv.goal;
+      const ai = flip ? aiFlapper(0.25) : null;
       let passed = 0, started = !!flip, dead = false, deadT = 0, t = 0;
       let lastGapY = H / 2 - 20, nextX = W + 60;
       let ghostY = lastGapY, keyGhost = false;
@@ -161,6 +172,7 @@
         if (dead) return;
         started = true;
         bird.vy = FLAP;
+        Cab.sfx('flap');
       }
 
       function cpuGap(range) {
@@ -172,17 +184,19 @@
       }
 
       function spawn() {
-        const range = allowedRange(lastGapY, passed + columns.length);
+        const range = allowedRange(lastGapY, passed + columns.length, cv);
         let y;
         if (flip) y = U.clamp(ghostY, range.lo, range.hi);
         else y = columns.length === 0 && passed === 0 ? lastGapY : cpuGap(range);
         columns.push({ x: W, gapY: y, gap: range.gap, passed: false });
+        if (flip) Cab.sfx('place');
         lastGapY = y;
       }
 
       function splat(why) {
         if (dead) return;
         dead = true;
+        Cab.sfx('explode');
         for (let i = 0; i < 30; i++) particles.push({ x: BX, y: bird.y, vx: U.rand(-220, 220), vy: U.rand(-300, 80), l: U.rand(0.5, 1.1) });
         if (flip) api.end({ win: true, title: 'Splat! You win', text: `The computer ${why} after ${passed} columns.`, delay: 1100 });
         else api.end({ win: false, title: 'Splat!', text: `You ${why} after ${passed} columns.`, delay: 1100 });
@@ -203,16 +217,16 @@
           if (dead) { deadT += dt; bird.vy += G * dt; bird.y = Math.min(bird.y + bird.vy * dt, GROUND - BR); return; }
           if (!started) { bird.y = H / 2 - 40 + Math.sin(t * 4) * 8; return; }
 
-          const c = course(passed);
+          const c = course(passed, cv);
           // Ghost position for the human's next gap.
           if (flip) {
             const up = api.keys.has('ArrowUp') || api.keys.has('KeyW');
             const dn = api.keys.has('ArrowDown') || api.keys.has('KeyS');
             if (up || dn) { keyGhost = true; ghostY += (dn ? 1 : -1) * 320 * dt; }
             else if (!keyGhost && api.mouse.inside) ghostY = api.mouse.y;
-            const r = allowedRange(lastGapY, passed + columns.length);
+            const r = allowedRange(lastGapY, passed + columns.length, cv);
             ghostY = U.clamp(ghostY, r.lo, r.hi);
-            if (ai.decide({ bird, columns, speed: c.speed }, dt)) bird.vy = FLAP;
+            if (ai.decide({ bird, columns, speed: c.speed }, dt)) { bird.vy = FLAP; Cab.sfx('flap'); }
           }
 
           bird.vy += G * dt;
@@ -233,6 +247,7 @@
             if (!col.passed && col.x + CW < BX - BR) {
               col.passed = true;
               passed++;
+              Cab.sfx(passed % 10 === 0 ? 'level' : 'tick');
               if (passed >= GOAL) {
                 return flip
                   ? api.end({ win: false, title: 'The bird made it', text: `It threaded all ${GOAL} columns. Big swings right after a narrow gap are its weak spot.` })
@@ -257,7 +272,7 @@
           for (const col of columns) drawColumn(g, col.x, col.gapY, col.gap, '#ffd23e', 1);
           // ghost + bracket for the human designer
           if (flip && !dead) {
-            const r = allowedRange(lastGapY, passed + columns.length);
+            const r = allowedRange(lastGapY, passed + columns.length, cv);
             g.fillStyle = '#3ee6ff22';
             g.fillRect(W - 26, r.lo - r.gap / 2, 22, r.hi - r.lo + r.gap);
             g.strokeStyle = '#3ee6ff';
@@ -268,7 +283,7 @@
           // ground
           g.fillStyle = '#35204f'; g.fillRect(0, GROUND, W, H - GROUND);
           g.fillStyle = '#ffd23e44';
-          for (let x = -U.wrap(t * course(passed).speed, 40); x < W; x += 40) g.fillRect(x, GROUND, 20, 4);
+          for (let x = -U.wrap(t * course(passed, cv).speed, 40); x < W; x += 40) g.fillRect(x, GROUND, 20, 4);
           // bird
           if (!dead || deadT < 0.1) {
             g.save();
@@ -288,7 +303,7 @@
           }
           for (const p of particles) if (p.l > 0) { g.fillStyle = '#ffd23e'; g.fillRect(p.x, p.y, 4, 4); }
           g.fillStyle = '#0d0b18cc'; g.fillRect(0, 0, W, CEIL - 4);
-          const cc = course(passed);
+          const cc = course(passed, cv);
           D.hud(g, [`COLUMNS ${passed}/${GOAL}`, `GAP ${cc.gap | 0}px`, `SPEED ${cc.speed | 0}`]);
           if (!started) D.text(g, 'SPACE OR CLICK TO FLAP', W / 2, H / 2 + 30, 14, '#ffd23e', 'center');
         },
