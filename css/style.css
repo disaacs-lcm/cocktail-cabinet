@@ -682,3 +682,15 @@ button { font-family: var(--pixel); }
 .imi-guess p { color: #6fcf8a; margin: 0 0 12px; }
 .imi-guess .btn { min-width: 120px; }
 .imi-guess .btn.chosen { outline: 3px solid #fff; outline-offset: 2px; }
+
+/* ---------- Wave 2: header actions and how-to-win line ---------- */
+.stage-actions { display: flex; gap: 8px; }
+.overlay .how-win {
+  color: var(--ink); font-size: 21px;
+  border: 2px dashed #ffe74a66; padding: 6px 10px; margin: 4px 0 12px;
+}
+.overlay .how-win b { color: var(--yellow); font-weight: normal; font-family: var(--pixel); font-size: 11px; margin-right: 6px; }
+@media (max-width: 700px) {
+  .stage-bar { flex-wrap: wrap; justify-content: center; }
+  .stage-actions .btn { padding: 6px 8px 7px; font-size: 11px; letter-spacing: 1px; }
+}

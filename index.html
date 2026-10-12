@@ -29,7 +29,11 @@
         <span id="stage-name"></span>
         <span id="stage-mode" class="pill"></span>
       </div>
-      <button id="btn-pause" class="btn ghost" type="button">PAUSE</button>
+      <div class="stage-actions">
+        <button id="btn-sound" class="btn ghost" type="button" title="Sound on/off (M)">SOUND: ON</button>
+        <button id="btn-help" class="btn ghost" type="button" title="How to play (H)">HOW TO PLAY</button>
+        <button id="btn-pause" class="btn ghost" type="button" title="Pause (P)">PAUSE</button>
+      </div>
     </div>
     <div class="cabinet">
     <div class="bezel" id="bezel">
@@ -59,6 +63,7 @@
   <!-- PeerJS: WebRTC data channels for Imitation's two-browser play (public broker, no API key) -->
   <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
   <script src="js/cabinet.js"></script>
+  <script src="js/sound.js"></script>
   <script src="js/attract.js"></script>
   <script src="js/games/snake.js"></script>
   <script src="js/games/breakout.js"></script>

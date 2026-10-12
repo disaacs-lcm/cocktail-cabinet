@@ -68,6 +68,10 @@
 
   const Cab = (window.Cab = { W, H, U, D, games: [] });
   Cab.register = (g) => Cab.games.push(g);
+  // Sound is optional: js/sound.js replaces these. Without it (e.g. in the Node balance
+  // scripts) every Cab.sfx() call is a harmless no-op.
+  Cab.sfx = () => {};
+  Cab.sound = { isMuted: () => true, toggle: () => true, unlock() {} };
 
   // ---------------------------------------------------------------- runtime
   let el = {};
@@ -84,11 +88,15 @@
       menu: $('menu'), stage: $('stage'), canvas: $('screen'), overlay: $('overlay'),
       dom: $('dom-layer'), name: $('stage-name'), mode: $('stage-mode'), help: $('help'),
       back: $('btn-back'), pause: $('btn-pause'), bezel: $('bezel'),
+      sound: $('btn-sound'), helpBtn: $('btn-help'),
     };
     el.g = el.canvas.getContext('2d');
     buildMenu();
     el.back.onclick = () => { location.hash = ''; };
     el.pause.onclick = () => togglePause();
+    el.sound.onclick = () => toggleSound();
+    el.helpBtn.onclick = () => showHelp();
+    showSoundState();
 
     window.addEventListener('hashchange', route);
     window.addEventListener('keydown', onKeyDown);
@@ -174,6 +182,7 @@
 
   function selectGame(i, instant) {
     const n = Cab.games.length;
+    if (!instant) Cab.sfx('tick');
     menu.sel = ((i % n) + n) % n;
     try { sessionStorage.setItem('cab.sel', menu.sel); } catch (e) { /* storage blocked */ }
     const g = Cab.games[menu.sel];
@@ -207,6 +216,8 @@
   }
 
   function sit(k) {
+    Cab.sound.unlock();
+    Cab.sfx('click');
     const g = Cab.games[menu.sel];
     location.hash = `#/${g.id}/${g.modes[k].id}`;
   }
@@ -220,6 +231,7 @@
   function stopAttract() { cancelAnimationFrame(menu.raf); }
 
   function menuKey(e) {
+    if (e.code === 'KeyM') { toggleSound(); return; }
     if (e.code === 'ArrowLeft') { e.preventDefault(); selectGame(menu.sel - 1); }
     else if (e.code === 'ArrowRight') { e.preventDefault(); selectGame(menu.sel + 1); }
     else if (e.code === 'Enter' && !e.target.closest('button')) { e.preventDefault(); sit(e.shiftKey ? 1 : 0); }
@@ -257,13 +269,21 @@
     showIntro();
   }
 
-  function showIntro() {
-    const other = game.modes.find((x) => x !== mode);
+  // The "how to play / how to win" text for the current mode, shown before Start and
+  // again whenever the player presses H or the HOW TO PLAY button.
+  function helpBody() {
     const bullets = (mode.intro || []).map((s) => `<li>${s}</li>`).join('');
-    overlay(`
+    return `
       <h3 style="color:${game.color}">${U.esc(mode.name)}</h3>
       <p><b style="color:var(--ink)">You:</b> ${U.esc(mode.you)}<br><b style="color:var(--ink)">Computer:</b> ${U.esc(mode.cpu)}</p>
-      ${bullets ? `<ul>${bullets}</ul>` : ''}
+      ${mode.win ? `<p class="how-win"><b>HOW TO WIN:</b> ${mode.win}</p>` : ''}
+      ${bullets ? `<ul>${bullets}</ul>` : ''}`;
+  }
+
+  function showIntro() {
+    const other = game.modes.find((x) => x !== mode);
+    overlay(`
+      ${helpBody()}
       <div class="row">
         <button class="btn" data-act="start">Start</button>
         ${other ? `<button class="btn ghost" data-act="swap">Switch sides: ${U.esc(other.name)}</button>` : ''}
@@ -290,6 +310,20 @@
   }
   function hideOverlay() { el.overlay.hidden = true; el.overlay.innerHTML = ''; }
 
+  // Mid-game help: pauses canvas games; Imitation (a live chat) just shows it on top.
+  function showHelp() {
+    if (!running || ended) return;
+    if (!game.dom) { paused = true; el.pause.textContent = 'RESUME'; }
+    overlay(`${helpBody()}<div class="row"><button class="btn" data-act="${game.dom ? 'close' : 'resume'}">${game.dom ? 'Close' : 'Resume'}</button></div>`);
+  }
+
+  function showSoundState() {
+    const off = Cab.sound.isMuted();
+    el.sound.textContent = off ? 'SOUND: OFF' : 'SOUND: ON';
+    el.sound.setAttribute('aria-pressed', String(!off));
+  }
+  function toggleSound() { Cab.sound.toggle(); showSoundState(); }
+
   function act(a) {
     if (a === 'start' || a === 'again') begin();
     else if (a === 'swap') {
@@ -297,6 +331,7 @@
       location.hash = `#/${game.id}/${other.id}`;
     } else if (a === 'menu') location.hash = '';
     else if (a === 'resume') setPaused(false);
+    else if (a === 'close') hideOverlay();
   }
 
   function begin() {
@@ -306,6 +341,8 @@
     ended = false; paused = false;
     el.pause.textContent = 'PAUSE';
     if (game.dom) el.dom.innerHTML = '';
+    Cab.sound.unlock();
+    Cab.sfx('coin');
     api = {
       W, H, U, D, keys, mouse,
       mode: mode.id,
@@ -352,6 +389,7 @@
     if (ended) return;
     ended = true;
     const cls = r.win === true ? 'win' : r.win === false ? 'lose' : '';
+    Cab.sfx(r.win === true ? 'win' : r.win === false ? 'lose' : 'level');
     const other = game.modes.find((x) => x !== mode);
     setTimeout(() => {
       if (!running) return;
@@ -384,6 +422,7 @@
     const typing = e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA');
     if (typing) return;
     if (el.stage.hidden) { menuKey(e); return; }
+    if (e.code === 'KeyM') { toggleSound(); return; }
     if (!running) {
       if ((e.code === 'Enter' || e.code === 'Space') && !el.overlay.hidden && document.activeElement === document.body) {
         e.preventDefault();
@@ -392,6 +431,7 @@
       return;
     }
     if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code)) e.preventDefault();
+    if (e.code === 'KeyH') { if (!el.overlay.hidden && (paused || game.dom)) act(game.dom ? 'close' : 'resume'); else showHelp(); return; }
     if (e.code === 'KeyP' || e.code === 'Escape') { togglePause(); return; }
     if (paused || ended) return;
     if (!e.repeat) {
