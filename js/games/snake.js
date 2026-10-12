@@ -13,7 +13,7 @@
   const inb = (x, y) => x >= 0 && y >= 0 && x < GW && y < GH;
   const CLASSIC_GOAL = 40, FLIP_GOAL = 30;
   // Flipped: the computer snake's risk-taking and how many spare moves it gets per apple.
-  const CPU_GREED = 0.05, SLACK_START = 26, SLACK_MIN = 18;
+  const CPU_GREED = 0.05, SLACK_START = 26, SLACK_MIN = 17;
   // Autopilot only (Node balance runs): how the computer models a typical human on the
   // human's side. Steering: skips the safety check more often, and sometimes turns one
   // cell too late (keeps going straight) - more often the faster the snake moves, like a

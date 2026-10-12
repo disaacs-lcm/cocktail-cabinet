@@ -20,7 +20,7 @@ function run(id, mode, seconds, human) {
   let result = null;
   const api = {
     W: 800, H: 600, U: Cab.U, D: Cab.D, keys: new Set(), mouse: { x: 400, y: 300, down: false, inside: true },
-    mode, color: '#fff', end: (r) => { if (!result) result = r; }, setHelp() {}, isEnded: () => !!result,
+    mode, color: '#fff', level: 1, autopilot: false, end: (r) => { if (!result) result = r; }, setHelp() {}, isEnded: () => !!result,
   };
   const inst = game.create(api);
   let t = 0;

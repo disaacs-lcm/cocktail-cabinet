@@ -19,8 +19,8 @@
   // battery also regains 1 shot every REFILL_EVERY seconds, up to its starting amount.
   const AMMO = { classic: 15, flip: 10 }, REFILL_EVERY = 6;
   // Classic attack size and speed per wave; flipped: your missile budget per wave.
-  const CLASSIC = { count0: 8, countPerWave: 3.5, speed0: 44, speedPerWave: 7 };
-  const FLIP = { budget0: 13, budgetPerWave: 2.5 };
+  const CLASSIC = { count0: 8, countPerWave: 3.75, speed0: 44, speedPerWave: 7 };
+  const FLIP = { budget0: 13, budgetPerWave: 2.25 };
   // Autopilot only (Node balance runs): a typical human defender is modelled by the same
   // battery commander the computer uses; a human attacker spends the budget at a steady
   // pace on random living cities, with some splitters.

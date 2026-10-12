@@ -17,7 +17,7 @@
   const MAX_SHIPS = 5;
   // Classic waves: big rocks per wave and their speed.
   // Flipped: the computer pilot's skill and how fast your throwing energy refills.
-  const FLIP = { pilotSkill: 0.6, regen0: 0.45, regenPerWave: 0.15 };
+  const FLIP = { pilotSkill: 0.6, regen0: 0.45, regenPerWave: 0.13 };
   const CLASSIC = { rocks0: 1, rocksPerWave: 2.7, speed0: 35, speedPerWave: 7 };
   // Autopilot only (Node balance runs): a typical human pilot is modelled by the same
   // pilot at this skill; a human thrower throws a big rock at the ship every ~throwEvery s.

@@ -16,7 +16,7 @@
   const PREFIX = 'cocktail-cabinet-imitation-v1-';
   const LOBBY_SLOTS = 4;
   const CHAT_SECONDS = 120, GUESS_AFTER = 40;
-  const PASS_MARK = [80, 86];   // Prove it: humanity score needed in round 1 and round 5+
+  const PASS_MARK = [81, 87];   // Prove it: humanity score needed in round 1 and round 5+
 
   const store = {
     get(k, d) { try { const v = localStorage.getItem('imi.' + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
@@ -296,7 +296,7 @@
       if (len < 2) this.note(-2, null);
     }
     verdict() {
-      // Pass mark: round 1 needs 80, rising to 86 by round 5. A relaxed, natural chatter
+      // Pass mark: round 1 needs 81, rising to 87 by round 5. A relaxed, natural chatter
       // scores about 80 (see tools/balance.js), so round 1 is roughly a coin flip.
       const need = U.lerp(PASS_MARK[0], PASS_MARK[1], this.strict);
       const n = this.msgs.length;

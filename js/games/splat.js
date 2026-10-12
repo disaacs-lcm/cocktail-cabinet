@@ -21,7 +21,7 @@
   // by ~30-50 ms even when they know exactly when to press).
   const HUMAN_MODEL = { flapSkill: 0, reactionFrames: 9, tapJitter: 3 };
   const CURVES = {
-    classic: { over: 40, speed: [160, 250], gap: [200, 136], reach: [0.4, 0.85], goal: 30 },
+    classic: { over: 40, speed: [160, 250], gap: [200, 133], reach: [0.4, 0.85], goal: 30 },
     flip:    { over: 20, speed: [180, 290], gap: [175, 114], reach: [0.75, 1],   goal: 30 },
   };
   const REACTION_FRAMES = 4, FLAP_COOLDOWN = 0.1;
