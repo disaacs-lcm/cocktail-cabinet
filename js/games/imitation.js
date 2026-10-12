@@ -295,7 +295,7 @@
       if (len < 2) this.note(-2, null);
     }
     verdict() {
-      const need = U.lerp(38, 62, this.strict);
+      const need = U.lerp(46, 66, this.strict);   // round 1 needs 46, round 5+ needs 66
       const n = this.msgs.length;
       if (n < 3) this.note(-10, 'barely said anything');
       const lens = this.msgs.map((m) => m.text.length);
@@ -406,6 +406,7 @@
         id: 'classic', name: 'Who’s there?',
         you: 'chat, then guess human or AI',
         cpu: 'might be your partner, or another browser might',
+        win: 'Guess correctly whether your partner was a human or the computer.',
         intro: [
           'Quick Match pairs you with whoever else is searching. If nobody turns up, a computer partner takes the seat.',
           `Chat for up to ${CHAT_SECONDS / 60} minutes, then call it: human or AI? Your partner guesses about you too.`,
@@ -417,6 +418,7 @@
         id: 'flip', name: 'Prove it',
         you: 'convince the interrogator you’re human',
         cpu: 'interrogates you and judges',
+        win: 'Get the interrogator to judge you HUMAN. Its score bar rises each round you pass.',
         intro: [
           'The computer asks the questions. Answer however you like.',
           'It watches what you say and how you type it: speed, pauses, pasting, style.',
@@ -515,6 +517,7 @@
         later(wait, () => {
           if (ctx.cancelled) return;
           setSub('Match found!');
+          Cab.sfx('level');
           later(U.rand(600, 1200), () => (found ? startHuman(found.conn) : startBot()));
         });
       }
@@ -592,6 +595,7 @@
             log.appendChild(b);
             log.scrollTop = log.scrollHeight;
             if (who === 'them') meta.lastPartner = Date.now();
+            Cab.sfx(who === 'them' ? 'msgIn' : 'msgOut');
           },
           sys(text) { const b = el('div', 'imi-sys'); b.textContent = text; log.appendChild(b); log.scrollTop = log.scrollHeight; },
           typing(on, who = 'Partner') { typingEl.innerHTML = on ? `${who} is typing<span class="imi-dots">…</span>` : '&nbsp;'; },
@@ -688,7 +692,8 @@
 
       // ---------------------------------------------------------------- vs computer
       function startBot() {
-        const level = store.get('botLevel', 1);
+        // The computer partner starts at level 2 (of 4) so round 1 isn't a giveaway.
+        const level = Math.max(2, store.get('botLevel', 2));
         let closed = false, myGuess = null, stopClock = null;
         const judge = new Judge(0.3);
         const ui = chatScreen({
@@ -747,7 +752,7 @@
           meta: [{ text: 'last one: do you think I’m a human or a bot?' }],
         };
         const plan = [U.pick(pools.warm), U.pick(pools.specific), U.pick(pools.time), U.pick(pools.opinion)];
-        if (round >= 2) plan.push(U.pick(pools.math));
+        plan.push(U.pick(pools.math));                       // from round 1
         if (round >= 3) plan.push(U.pick(pools.trap));
         if (round >= 4) plan.push(U.pick(pools.specific.filter((q) => q !== plan[1])));
         plan.push(pools.meta[0]);
