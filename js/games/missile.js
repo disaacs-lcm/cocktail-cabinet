@@ -18,6 +18,13 @@
   // Ammo per battery at the start of each wave. When you defend (classic) every living
   // battery also regains 1 shot every REFILL_EVERY seconds, up to its starting amount.
   const AMMO = { classic: 15, flip: 10 }, REFILL_EVERY = 6;
+  // Classic attack size and speed per wave; flipped: your missile budget per wave.
+  const CLASSIC = { count0: 8, countPerWave: 3.5, speed0: 44, speedPerWave: 7 };
+  const FLIP = { budget0: 13, budgetPerWave: 2.5 };
+  // Autopilot only (Node balance runs): a typical human defender is modelled by the same
+  // battery commander the computer uses; a human attacker spends the budget at a steady
+  // pace on random living cities, with some splitters.
+  const HUMAN_MODEL = { launchEvery: 0.9, splitChance: 0.3, defend: { reaction: [0.5, 0.9], aim: 22, gap: [0.4, 0.6] } };
 
   function blastRadius(e) {
     const T = e.t;
@@ -27,7 +34,10 @@
   }
 
   // ---------------------------------------------------------------- computer defender
-  function aiDefender() {
+  // opts: reaction [min,max] s to notice a missile, aim error (px, 1 sd), and the
+  // gap [min,max] s between shots. Defaults are the computer's own settings.
+  function aiDefender(opts = {}) {
+    const o = { reaction: [0.35, 0.65], aim: 15, gap: [0.3, 0.45], ...opts };
     const noticed = new Map();   // missile -> time noticed
     const assigned = new Map();  // missile -> time we expect it to be dead
     let cd = 0, clock = 0;
@@ -37,7 +47,7 @@
         cd -= dt;
         const { missiles, batteries, cities, explosions } = world;
         const ammoLeft = batteries.reduce((n, b) => n + (b.alive ? b.ammo : 0), 0);
-        for (const m of missiles) if (!noticed.has(m)) noticed.set(m, clock + U.rand(0.35, 0.65)); // reaction time
+        for (const m of missiles) if (!noticed.has(m)) noticed.set(m, clock + U.rand(o.reaction[0], o.reaction[1])); // reaction time
         for (const k of [...noticed.keys()]) if (!missiles.includes(k)) { noticed.delete(k); assigned.delete(k); }
         if (cd > 0) return;
 
@@ -52,10 +62,10 @@
         for (const t of threats) {
           const plan = bestShot(t.m, batteries);
           if (!plan) continue;
-          const ex = plan.x + U.gauss(15), ey = plan.y + U.gauss(15);
+          const ex = plan.x + U.gauss(o.aim), ey = plan.y + U.gauss(o.aim);
           if (fireAt(plan.bat, ex, ey)) {
             assigned.set(t.m, clock + plan.T + 0.9);
-            cd = U.rand(0.3, 0.45);   // about as fast as a person can aim and click
+            cd = U.rand(o.gap[0], o.gap[1]);   // about as fast as a person can aim and click
             // A single blast often covers neighbours too, so mark nearby missiles as handled.
             for (const o of missiles) {
               if (o === t.m) continue;
@@ -138,12 +148,15 @@
       const batteries = BAT_X.map((x) => ({ x, alive: true, ammo: maxAmmo }));
       let refillT = 0;
       const missiles = [], interceptors = [], explosions = [], trails = [];
-      const defender = flip ? aiDefender() : null;
-      let wave = 0, waveT = 0, state = 'intro', stateT = 1.4, score = 0;
+      const auto = api.autopilot;
+      const defender = flip ? aiDefender() : auto ? aiDefender(HUMAN_MODEL.defend) : null;
+      // ?level=N starts at wave N (startWave adds 1)
+      let wave = Math.min(api.level, WAVES) - 1, waveT = 0, state = 'intro', stateT = 1.4, score = 0;
+      let autoT = 0;
       let schedule = [], budget = 0, launchCd = 0, drag = null, msg = '', msgT = 0;
       const WAVE_TIME = 28;
 
-      const mSpeed = () => (flip ? 52 + wave * 16 : 44 + wave * 7);
+      const mSpeed = () => (flip ? 52 + wave * 16 : CLASSIC.speed0 + wave * CLASSIC.speedPerWave);
       const splitOK = () => (flip ? wave >= 2 : wave >= 4);
       function say(m) { msg = m; msgT = 1.5; Cab.sfx('error'); }
 
@@ -154,10 +167,10 @@
         for (const b of batteries) { b.alive = true; b.ammo = maxAmmo; }
         refillT = 0;
         Cab.sfx('level');
-        if (flip) budget = 13 + (wave - 1) * 6;
+        if (flip) budget = Math.round(FLIP.budget0 + (wave - 1) * FLIP.budgetPerWave);
         else {
           // The computer attacker's plan for this wave: a list of launch times.
-          const n = 8 + wave * 2;
+          const n = Math.round(CLASSIC.count0 + wave * CLASSIC.countPerWave);
           schedule = [];
           for (let i = 0; i < n; i++) schedule.push(U.rand(0.5, 16 + wave * 2));
           schedule.sort((a, b) => a - b);
@@ -255,8 +268,17 @@
               for (const b of batteries) if (b.alive && b.ammo < maxAmmo) { b.ammo++; any = true; }
               if (any) Cab.sfx('place');
             }
-            if (flip) defender.update(dt, { missiles, batteries, cities, explosions }, fire);
-            else while (schedule.length && schedule[0] <= waveT) { schedule.shift(); cpuAttack(); }
+            if (flip) {
+              defender.update(dt, { missiles, batteries, cities, explosions }, fire);   // computer defends
+              if (auto && (autoT -= dt) <= 0) {                                          // autopilot attacks
+                autoT = HUMAN_MODEL.launchEvery * U.rand(0.5, 1.5);
+                const alive = cities.filter((c) => c.alive);
+                if (alive.length) humanLaunch(U.rand(20, W - 20), 20, U.pick(alive).x + U.rand(-10, 10), Math.random() < HUMAN_MODEL.splitChance);
+              }
+            } else {
+              while (schedule.length && schedule[0] <= waveT) { schedule.shift(); cpuAttack(); }   // computer attacks
+              if (auto) defender.update(dt, { missiles, batteries, cities, explosions }, fire);  // autopilot defends
+            }
           }
 
           // enemy missiles
@@ -392,6 +414,7 @@
               g.fillStyle = '#5dff9b'; g.fillRect(W / 2 - 50, 27, 100 * (refillT / REFILL_EVERY), 6);
             }
           }
+          D.testTag(g, api.level);
           if (state !== 'play') D.text(g, `WAVE ${wave + 1}`, W / 2, H / 2 - 40, 20, '#ff5d6c', 'center');
           if (msgT > 0) D.text(g, msg, W / 2, H / 2, 12, '#ffd23e', 'center');
         },
