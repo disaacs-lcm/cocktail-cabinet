@@ -15,9 +15,14 @@
   // Each mode has its own difficulty curve: values go from the first number to the
   // second over `over` columns. reach is the fraction of the bird's physical climbing
   // limit that a gap is allowed to jump (1 = as far as a perfect flapper can manage).
+  // Autopilot only (Node balance runs): a typical human flapper is modelled by the same
+  // look-ahead flapper at this skill; a human gap-placer by the classic layout style.
+  // 150 ms reaction, and each tap lands 0-tapJitter frames late (people's taps scatter
+  // by ~30-50 ms even when they know exactly when to press).
+  const HUMAN_MODEL = { flapSkill: 0, reactionFrames: 9, tapJitter: 3 };
   const CURVES = {
-    classic: { over: 40, speed: [160, 250], gap: [200, 142], reach: [0.4, 0.85], goal: 30 },
-    flip:    { over: 20, speed: [180, 290], gap: [175, 118], reach: [0.75, 1],   goal: 30 },
+    classic: { over: 40, speed: [160, 250], gap: [200, 136], reach: [0.4, 0.85], goal: 30 },
+    flip:    { over: 20, speed: [180, 290], gap: [175, 114], reach: [0.75, 1],   goal: 30 },
   };
   const REACTION_FRAMES = 4, FLAP_COOLDOWN = 0.1;
 
@@ -64,7 +69,7 @@
   // It chooses the option that keeps the most clearance from pipes and ground.
   // Its flaws: reaction lag, misjudging each gap by a few pixels, and occasional
   // hesitation. Tight gaps after big swings at speed are where those flaws bite.
-  function aiFlapper(skill) {
+  function aiFlapper(skill, reactionFrames = REACTION_FRAMES) {
     const history = [];
     const misjudge = new WeakMap();   // column -> how many px off its read of that gap is
     let cooldown = 0;
@@ -93,7 +98,8 @@
     }
 
     return {
-      decide(world, dt) {
+      // deferred: the caller will tap later and report it with noteFlap().
+      decide(world, dt, deferred = false) {
         history.push({
           y: world.bird.y, vy: world.bird.vy, speed: world.speed,
           cols: world.columns.map((c) => {
@@ -102,14 +108,18 @@
             return { x: c.x, top: c.gapY - c.gap / 2 + e, bot: c.gapY + c.gap / 2 + e, aim: c.gapY + c.gap * 0.22 + e };
           }),
         });
-        if (history.length > REACTION_FRAMES + 1) history.shift();
+        if (history.length > reactionFrames + 1) history.shift();
         cooldown -= dt;
-        if (history.length <= REACTION_FRAMES || cooldown > 0) return false;
+        if (history.length <= reactionFrames || cooldown > 0) return false;
         if (Math.random() < U.lerp(0.14, 0.05, skill)) return false;   // a moment's hesitation
         // Project the stale view forward to "now" using the physics it knows.
-        const seen = history[0], lag = REACTION_FRAMES / 60;
+        const seen = history[0], lag = reactionFrames / 60;
         let y = seen.y, vy = seen.vy;
-        for (let i = 0; i < REACTION_FRAMES; i++) { vy += G / 60; y += vy / 60; }
+        // ...replaying any flaps it pressed since then (it remembers its own presses).
+        for (let i = 0; i < reactionFrames; i++) {
+          if (history[i].flapped) vy = FLAP;
+          vy += G / 60; y += vy / 60;
+        }
         const cols = seen.cols.map((c) => ({ ...c, x: c.x - seen.speed * lag }));
         const wait = rollout(y, vy, cooldown, cols, seen.speed, false);
         const flap = rollout(y, vy, cooldown, cols, seen.speed, true);
@@ -117,9 +127,11 @@
         const next = cols.find((c) => c.x + CW > BX - BR);
         const habit = y > (next ? next.aim : H / 2) && vy > -30;
         const go = habit ? !(wait > flap + 3) : wait < 0 ? flap > wait : flap > wait + 3;
+        if (!deferred) history[history.length - 1].flapped = go;
         if (go) cooldown = FLAP_COOLDOWN;
         return go;
       },
+      noteFlap() { if (history.length) history[history.length - 1].flapped = true; },
     };
   }
 
@@ -162,8 +174,11 @@
       const columns = [];
       const cv = flip ? CURVES.flip : CURVES.classic;
       const GOAL = cv.goal;
-      const ai = flip ? aiFlapper(0.25) : null;
-      let passed = 0, started = !!flip, dead = false, deadT = 0, t = 0;
+      const auto = api.autopilot;
+      const ai = flip ? aiFlapper(0) : auto ? aiFlapper(HUMAN_MODEL.flapSkill, HUMAN_MODEL.reactionFrames) : null;
+      // ?level=N starts N-1 stages (5 columns each) into the course
+      let tapIn = -1;                 // autopilot: frames until a decided tap lands
+      let passed = (api.level - 1) * 5, started = flip || auto, dead = false, deadT = 0, t = 0;
       let lastGapY = H / 2 - 20, nextX = W + 60;
       let ghostY = lastGapY, keyGhost = false;
       const particles = [];
@@ -186,7 +201,7 @@
       function spawn() {
         const range = allowedRange(lastGapY, passed + columns.length, cv);
         let y;
-        if (flip) y = U.clamp(ghostY, range.lo, range.hi);
+        if (flip) y = auto ? cpuGap(range) : U.clamp(ghostY, range.lo, range.hi);
         else y = columns.length === 0 && passed === 0 ? lastGapY : cpuGap(range);
         columns.push({ x: W, gapY: y, gap: range.gap, passed: false });
         if (flip) Cab.sfx('place');
@@ -227,6 +242,9 @@
             const r = allowedRange(lastGapY, passed + columns.length, cv);
             ghostY = U.clamp(ghostY, r.lo, r.hi);
             if (ai.decide({ bird, columns, speed: c.speed }, dt)) { bird.vy = FLAP; Cab.sfx('flap'); }
+          } else if (auto) {
+            if (ai.decide({ bird, columns, speed: c.speed }, dt, true) && tapIn < 0) tapIn = U.randi(0, HUMAN_MODEL.tapJitter);
+            if (tapIn >= 0 && tapIn-- === 0) { flap(); ai.noteFlap(); }
           }
 
           bird.vy += G * dt;
@@ -305,6 +323,7 @@
           g.fillStyle = '#0d0b18cc'; g.fillRect(0, 0, W, CEIL - 4);
           const cc = course(passed, cv);
           D.hud(g, [`COLUMNS ${passed}/${GOAL}`, `GAP ${cc.gap | 0}px`, `SPEED ${cc.speed | 0}`]);
+          D.testTag(g, api.level);
           if (!started) D.text(g, 'SPACE OR CLICK TO FLAP', W / 2, H / 2 + 30, 14, '#ffd23e', 'center');
         },
       };
