@@ -20,6 +20,8 @@
       this.paddle = { cx: x + w / 2, w: opts.paddleW || 90, h: 12 };
       this.baseSpeed = opts.speed || 320;
       this.speed = this.baseSpeed;
+      this.accel = opts.accel || 6;              // px/s gained every second the ball is in play
+      this.maxSpeed = opts.maxSpeed || this.baseSpeed * 1.8;
       this.lives = opts.lives || 3;
       this.broken = 0;
       this.dangerY = PADDLE_Y - 90;
@@ -55,6 +57,10 @@
     step(dt) {
       const b = this.ball;
       if (b.stuck) { b.stuckT += dt; return 0; }
+      // The ball keeps speeding up while it's in play (shown by the SPEED gauge).
+      const before = Math.hypot(b.vx, b.vy) || 1;
+      this.speed = Math.min(this.speed + this.accel * dt, this.maxSpeed);
+      b.vx *= this.speed / before; b.vy *= this.speed / before;
       let broke = 0;
       const n = Math.ceil((Math.hypot(b.vx, b.vy) * dt) / 4);
       const h = dt / n;
@@ -69,9 +75,10 @@
             b.x >= p.cx - p.w / 2 - b.r && b.x <= p.cx + p.w / 2 + b.r) {
           const off = U.clamp((b.x - p.cx) / (p.w / 2), -1, 1);
           const a = off * 1.05; // up to 60 degrees from vertical
-          this.speed = Math.min(this.speed * 1.015, this.baseSpeed * 1.6);
+          this.speed = Math.min(this.speed * 1.015, this.maxSpeed);
           b.vx = Math.sin(a) * this.speed; b.vy = -Math.cos(a) * this.speed;
           b.y = PADDLE_Y - b.r;
+          Cab.sfx('bounce');
         }
         // bricks
         if (this.hitBrick()) broke++;
@@ -93,7 +100,8 @@
           if (ox < oy) { b.vx = b.x < bx + this.bw / 2 ? -Math.abs(b.vx) : Math.abs(b.vx); }
           else { b.vy = b.y < by + BH / 2 ? -Math.abs(b.vy) : Math.abs(b.vy); }
           this.rows[r][c]--;
-          if (!this.rows[r][c]) { this.broken++; return true; }
+          if (!this.rows[r][c]) { this.broken++; Cab.sfx('hit'); return true; }
+          Cab.sfx('tick');
           return false;
         }
       }
@@ -128,6 +136,12 @@
         g.beginPath(); g.arc(this.x + 12 + i * 14, H - 12, 4, 0, Math.PI * 2); g.fill();
       }
       if (label) D.text(g, label, this.x + this.w - 8, H - 18, 10, color, 'right');
+      // speed gauge
+      const f = U.clamp((this.speed - this.baseSpeed) / (this.maxSpeed - this.baseSpeed), 0, 1);
+      const gx = this.x + this.w / 2 - 40;
+      D.text(g, 'SPEED', gx - 6, H - 16, 7, '#9c97bd', 'right');
+      g.fillStyle = '#222'; g.fillRect(gx, H - 16, 80, 6);
+      g.fillStyle = f > 0.75 ? '#ff5d6c' : color; g.fillRect(gx, H - 16, 80 * f, 6);
     }
   }
 
@@ -205,10 +219,12 @@
         id: 'classic', name: 'Classic',
         you: 'work the paddle',
         cpu: 'builds five walls, each tougher than the last',
+        win: 'Clear all 5 walls before you run out of balls.',
         intro: [
           'Mouse or ←/→ to move. Click or Space to launch.',
           'Where the ball hits the paddle sets its angle.',
-          'Clear 5 walls to win. More rows, a faster ball and a smaller paddle every level. White bricks take two hits.',
+          'The ball speeds up the longer it stays in play (SPEED gauge). Losing a ball resets it.',
+          'Each level: more rows, a smaller paddle, and you get a bonus ball. White bricks take two hits.',
         ],
         help: 'Mouse or ←/→ · Click / Space launches · P pauses',
       },
@@ -216,11 +232,12 @@
         id: 'flip', name: 'Versus',
         you: 'left wall',
         cpu: 'plays the right wall against you',
+        win: 'Win 3 rounds. Take a round by clearing your wall first, or when the computer drops 3 balls or its bricks cross the red line.',
         intro: [
           'Mouse or ←/→ to move your paddle (left). Click or Space to launch.',
-          'Every 4 bricks you break drops a new row onto the computer’s wall, and it does the same to you.',
-          'Clear your wall first to win the round. You lose it if you drop 3 balls or your bricks cross the red line.',
-          'Best of 5. The computer gets sharper each round.',
+          'Every 4 bricks you break drops a new row onto the computer’s wall (the NEXT ROW pips fill up), and it does the same to you.',
+          'Both balls speed up the longer they stay in play (SPEED gauges).',
+          'The computer gets sharper each round.',
         ],
         help: 'Mouse or ←/→ · Click / Space launches · P pauses',
       },
@@ -251,6 +268,7 @@
         const r = well.step(dt);
         if (r === 'lost') {
           well.lives--;
+          Cab.sfx('lifeLost');
           if (well.lives <= 0) return api.end({ win: false, title: 'Game over', text: `You reached level ${level} with ${score} bricks.` });
           well.speed = well.baseSpeed;
           well.resetBall();
@@ -260,6 +278,7 @@
             if (level >= 5) return api.end({ win: true, title: 'All five walls down!', text: `${score} bricks broken.` });
             level++;
             build();
+            Cab.sfx('level');
           }
         }
       },
@@ -274,7 +293,7 @@
   }
 
   function versus(api) {
-    const GAP = 20, WW = (W - GAP) / 2;
+    const GAP = 20, WW = (W - GAP) / 2, PUSH_EVERY = 4;
     let round = 0, wins = { you: 0, cpu: 0 }, you, cpu, humanCtl, cpuCtl, pending = { you: 0, cpu: 0 };
     let banner = 0, bannerText = '', between = false, elapsed = 0;
 
@@ -293,6 +312,7 @@
     function roundOver(youWon, why) {
       wins[youWon ? 'you' : 'cpu']++;
       between = true;
+      Cab.sfx(youWon ? 'level' : 'point');
       bannerText = `${youWon ? 'YOU TAKE' : 'CPU TAKES'} ROUND ${round}`;
       banner = 2.2;
       if (wins.you >= 3 || wins.cpu >= 3) {
@@ -305,12 +325,13 @@
       const r = well.step(1 / 60);
       if (r === 'lost') {
         well.lives--;
+        Cab.sfx(key === 'you' ? 'lifeLost' : 'score');
         well.speed = well.baseSpeed;
         well.resetBall();
         if (well.lives <= 0) return key === 'you' ? roundOver(false, 'you ran out of balls') : roundOver(true, 'the computer ran out of balls');
       } else if (r) {
         pending[key] += r;
-        while (pending[key] >= 4) { pending[key] -= 4; other.pushRow(); }
+        while (pending[key] >= PUSH_EVERY) { pending[key] -= PUSH_EVERY; other.pushRow(); Cab.sfx(key === 'you' ? 'launch' : 'warn'); }
         if (!well.bricksLeft()) return roundOver(key === 'you', key === 'you' ? 'you cleared your wall' : 'the computer cleared its wall');
       }
       well.trimEmptyTail();
@@ -338,6 +359,15 @@
         you.draw(g, 'YOU', '#3ee6ff');
         cpu.draw(g, 'CPU', '#ff8a3d');
         D.hud(g, [`YOU ${wins.you}`, `ROUND ${round} · FIRST TO 3`, `CPU ${wins.cpu}`]);
+        // NEXT ROW pips: how close each side is to dropping a row on the other
+        [[you, 'you', '#3ee6ff'], [cpu, 'cpu', '#ff8a3d']].forEach(([w, k, col]) => {
+          const x0 = w.x + 10;
+          D.text(g, 'NEXT ROW', x0, TOP - 22, 7, '#9c97bd');
+          for (let i = 0; i < PUSH_EVERY; i++) {
+            g.fillStyle = i < pending[k] ? col : '#2a2440';
+            g.fillRect(x0 + 72 + i * 12, TOP - 22, 9, 7);
+          }
+        });
         if (banner > 0) {
           g.fillStyle = '#000a'; g.fillRect(0, H / 2 - 30, W, 60);
           D.text(g, bannerText, W / 2, H / 2 - 10, 18, '#ffd23e', 'center');
