@@ -15,6 +15,13 @@
   const MAX_ROCK_V = { 1: 190, 2: 150 };
   const MASS = { 3: 7, 2: 3, 1: 1 };           // a big rock is 7 hits' worth once it splits
   const MAX_SHIPS = 5;
+  // Classic waves: big rocks per wave and their speed.
+  // Flipped: the computer pilot's skill and how fast your throwing energy refills.
+  const FLIP = { pilotSkill: 0.6, regen0: 0.45, regenPerWave: 0.15 };
+  const CLASSIC = { rocks0: 1, rocksPerWave: 2.7, speed0: 35, speedPerWave: 7 };
+  // Autopilot only (Node balance runs): a typical human pilot is modelled by the same
+  // pilot at this skill; a human thrower throws a big rock at the ship every ~throwEvery s.
+  const HUMAN_MODEL = { pilotSkill: 0, reaction: 0.25, throwEvery: 2.2 };
   const WAVE_LEN = 35, FLIP_WAVES = 6, CLASSIC_WAVES = 6, EDGE = 56;
 
   const wd = (d, m) => { d = U.wrap(d + m / 2, m) - m / 2; return d; }; // shortest wrapped delta
@@ -58,7 +65,8 @@
     return worst;
   }
 
-  function aiPilot(skill) {
+  // reaction: minimum seconds between decisions (the computer uses its skill-based rate).
+  function aiPilot(skill, reaction = 0) {
     let think = 0, aimNoise = 0, targetRock = null, plan = { turn: 0, thrust: false, fire: false };
     const SAFE = 36;
     return {
@@ -73,7 +81,7 @@
           if (Math.abs(U.angDiff(ship.a, leadAngle(ship, r) + (r === targetRock ? aimNoise : 0))) < tol) { plan.fire = true; break; }
         }
         if (think > 0) return plan;
-        think = U.lerp(0.14, 0.07, skill) + U.rand(0, 0.03);
+        think = Math.max(reaction, U.lerp(0.14, 0.07, skill)) + U.rand(0, 0.03);
 
         // Hunting move: turn toward the lead point on the easiest rock that isn't too close.
         if (!targetRock || !rocks.includes(targetRock) || Math.random() < 0.08) {
@@ -169,12 +177,15 @@
       const flip = api.mode === 'flip';
       let ship = newShip();
       const rocks = [], bullets = [], sparks = [];
-      const pilot = flip ? aiPilot(0.45) : null;
-      let lives = 3, wave = 1, waveT = 0, score = 0, banner = 1.6, bannerText = 'WAVE 1';
+      const auto = api.autopilot;
+      const pilot = flip ? aiPilot(FLIP.pilotSkill) : auto ? aiPilot(HUMAN_MODEL.pilotSkill, HUMAN_MODEL.reaction) : null;
+      // ?level=N starts at wave N
+      let lives = 3, wave = Math.min(api.level, flip ? FLIP_WAVES : CLASSIC_WAVES), waveT = 0, score = 0, banner = 1.6, bannerText = `WAVE ${wave}`;
+      let throwT = 0;
       // flip state
       let energy = 4, size = 3, drag = null, msg = '', msgT = 0;
       const maxEnergy = () => 4 + wave * 2;
-      const regen = () => 0.45 + wave * 0.3;
+      const regen = () => FLIP.regen0 + wave * FLIP.regenPerWave;
       const maxRockV = () => 70 + wave * 22;
       const maxMass = () => 14 + wave * 7;
 
@@ -188,7 +199,7 @@
 
       // Classic: the computer's rock-thrower.
       function cpuWave() {
-        const n = 1 + Math.ceil(wave * 0.8);
+        const n = Math.ceil(CLASSIC.rocks0 + wave * CLASSIC.rocksPerWave);
         for (let i = 0; i < n; i++) cpuThrow(3);
       }
       function cpuThrow(sz) {
@@ -199,7 +210,7 @@
         } while (U.dist(x, y, ship.x, ship.y) < 250);
         const spread = U.lerp(1.1, 0.5, (wave - 1) / (CLASSIC_WAVES - 1));
         const a = Math.atan2(wd(ship.y - y, H), wd(ship.x - x, W)) + U.rand(-spread, spread);
-        const v = U.rand(35, 55) + wave * 7;
+        const v = U.rand(CLASSIC.speed0, CLASSIC.speed0 + 20) + wave * CLASSIC.speedPerWave;
         rocks.push(makeRock(x, y, Math.cos(a) * v, Math.sin(a) * v, sz));
       }
       if (!flip) cpuWave();
@@ -253,6 +264,21 @@
         Cab.sfx('launch');
       }
 
+      // Autopilot thrower: from a random edge point, aim the biggest affordable rock at
+      // where the ship is, at most of the allowed speed.
+      function autoThrow() {
+        throwT = HUMAN_MODEL.throwEvery * U.rand(0.6, 1.4);
+        size = energy >= 3 ? 3 : energy >= 2 ? 2 : 1;
+        let x0, y0;
+        do {
+          if (Math.random() < 0.5) { x0 = U.rand(0, W); y0 = Math.random() < 0.5 ? 10 : H - 10; }
+          else { x0 = Math.random() < 0.5 ? 10 : W - 10; y0 = U.rand(0, H); }
+        } while (U.dist(x0, y0, ship.x, ship.y) < 190);
+        const a = Math.atan2(ship.y - y0, ship.x - x0) + U.gauss(0.15);
+        const len = (maxRockV() * U.rand(0.6, 1)) / 1.2;
+        launchHuman(x0, y0, x0 + Math.cos(a) * len, y0 + Math.sin(a) * len);
+      }
+
       function onEdge(x, y) { return x < EDGE || y < EDGE || x > W - EDGE || y > H - EDGE; }
 
       return {
@@ -277,7 +303,7 @@
           // --- ship controls (human or computer, same limits)
           if (ship.alive) {
             let turn = 0, thrust = false, wantFire = false;
-            if (flip) {
+            if (flip || auto) {
               const p = pilot.plan(ship, rocks, dt);
               turn = p.turn; thrust = p.thrust; wantFire = p.fire;
             } else {
@@ -322,6 +348,7 @@
           if (api.isEnded()) return;
 
           // --- waves
+          if (flip && auto && (throwT -= dt) <= 0) autoThrow();
           if (flip) {
             energy = Math.min(maxEnergy(), energy + regen() * dt);
             waveT += dt;
@@ -412,6 +439,7 @@
           } else {
             D.hud(g, [`WAVE ${wave}/${CLASSIC_WAVES}`, `SCORE ${score}`, `SHIPS ${livesStr}`]);
           }
+          D.testTag(g, api.level);
           if (banner > 0) D.text(g, bannerText, W / 2, H / 2 - 60, 20, '#3ee6ff', 'center');
           if (msgT > 0) D.text(g, msg, W / 2, H - 40, 11, '#ffd23e', 'center');
         },
