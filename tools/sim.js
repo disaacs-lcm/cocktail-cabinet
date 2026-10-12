@@ -131,7 +131,7 @@ const tests = {
     const { ball, L, R: Rp } = inst._dbg();
     const p = ball.vx < 0 ? L : Rp;
     const distX = ball.vx < 0 ? ball.x - 46 : 754 - ball.x;
-    if (distX < 230 && distX > 20) api.keys.add(ball.y < p.y ? 'ArrowUp' : 'ArrowDown');
+    if (distX < 380 && distX > 110) api.keys.add(ball.y < p.y ? 'ArrowUp' : 'ArrowDown');
   }),
   pong_classic: () => run('pong', 'classic', 600),
   breakout_flip: () => run('breakout', 'flip', 900, (api, inst, t) => { if (Math.random() < 0.01) inst.key('Space'); }),
@@ -163,7 +163,7 @@ const tests = {
     if (t < 0.02) inst.pointer('move', 0, 0);
     if (t >= next) {
       next = t + 0.18;
-      if (ball.vx < 0) { const tt = (54 - ball.x) / ball.vx; tgt = fold(ball.y + ball.vy * tt, 44, 582) + err; }
+      if (ball.vx < 0) { const tt = (54 - ball.x) / ball.vx; tgt = fold(ball.y + ball.vy * tt, 44, 568) + err; }
       else err = R.gauss(22);
     }
     api.mouse.y = tgt;

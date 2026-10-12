@@ -1,17 +1,29 @@
 /* Pong (our seventh game).
- * Classic: you play the left paddle against a computer paddle that sharpens every point.
+ * Classic: you play the left paddle against a computer paddle.
  * Flip ("Ball Bender"): the computer plays BOTH paddles; you control the ball's curve with
  *   a limited spin meter. Bend it past a paddle to score. If the paddles keep up a rally
- *   of 6 returns, they score instead. The paddles improve every point.
+ *   of 6 returns, they score instead.
  * Computer paddles read the ball like a player: where does it cross my line (with wall
- * bounces)? They re-read on a reaction timer, have a speed cap and aim error, and cannot
- * see a bend coming.
+ * bounces)? They play at one steady skill all game. They re-read the ball only every
+ * REACTION seconds, misjudge each incoming ball by a random amount, and have a top
+ * speed. They cannot see a bend coming.
+ * The ball speeds up steadily (a little per hit and a little per second) up to MAX_SPEED.
  */
 (function () {
   'use strict';
   const { U, D, W, H } = Cab;
-  const PW = 12, PH = 90, PX = 34, BR = 8, TOP = 36, BOT = H - 10;
+  const PW = 12, PH = 90, PX = 34, BR = 8, TOP = 36, BOT = H - 24;
   const TO = 7, RALLY_HOLD = 6;
+  const START_SPEED = 330, MAX_SPEED = 820;
+  const SPEED_PER_HIT = 14, SPEED_PER_SEC = 6;     // ~30 returns from serve speed to the cap
+  // Ball Bender limits: how hard and how long you can curve, and the no-bend zone in
+  // front of each paddle (so you can't bend the ball at the last instant).
+  const BEND_ACCEL = 950, BEND_DRAIN = 1.0, BEND_REFILL = 0.25, BEND_CAP = 1.0, NO_BEND = 110;
+  // Computer paddle settings per mode (see cpuPaddle).
+  const CPU = {
+    classic: { skill: 0.6, readError: 40 },
+    flip:    { skill: 0.4, readError: 52 },
+  };
 
   function fold(y, lo, hi) {
     const span = hi - lo;
@@ -20,21 +32,23 @@
     return lo + m;
   }
 
-  // readError: how badly it misjudges each ball at skill 0 (px, one standard deviation).
+  // skill 0..1 sets reaction time and paddle speed; readError is how badly it misjudges
+  // each ball at skill 0 (px, one standard deviation).
   function cpuPaddle(side, readError) {
     let think = 0, target = (TOP + BOT) / 2, wasComing = false, misread = 0, aimOff = 0;
     return {
       update(p, ball, skill, dt) {
         const coming = side === 'left' ? ball.vx < 0 : ball.vx > 0;
+        // (reaction: the paddle only re-reads the ball every `think` seconds)
         if (coming && !wasComing) {
           // One read per incoming ball, the way a player commits: a misjudgement that
           // doesn't vanish as the ball arrives, plus an off-centre hit to angle the return.
-          misread = U.gauss((1 - skill) * readError + Math.max(0, ball.speed - 560) * 0.08); // fast balls are harder to read
+          misread = U.gauss((1 - skill) * readError + Math.max(0, ball.speed - 560) * 0.06); // fast balls are harder to read
           aimOff = U.rand(-0.3, 0.3) * PH * skill;
         }
         wasComing = coming;
         if ((think -= dt) <= 0) {
-          think = U.lerp(0.22, 0.05, skill) + U.rand(0, 0.04);
+          think = U.lerp(0.24, 0.08, skill) + U.rand(0, 0.04);
           if (coming) {
             const lineX = side === 'left' ? PX + PW + BR : W - PX - PW - BR;
             const t = (lineX - ball.x) / ball.vx;
@@ -60,10 +74,12 @@
       {
         id: 'classic', name: 'Classic',
         you: 'play the left paddle',
-        cpu: 'plays the right paddle, sharper every point',
+        cpu: 'plays the right paddle',
+        win: `First to ${TO} points.`,
         intro: [
           'W/S or ↑/↓, or move the mouse. Where the ball hits your paddle sets its angle.',
-          `First to ${TO}. The ball speeds up during a rally.`,
+          'The ball speeds up a little with every hit (watch the SPEED gauge). Long rallies get fast.',
+          'Hit with the edge of your paddle for a sharp angle the computer may misjudge.',
         ],
         help: 'W/S · ↑/↓ · mouse · P pauses',
       },
@@ -71,10 +87,11 @@
         id: 'flip', name: 'Ball Bender',
         you: 'curve the ball',
         cpu: 'plays both paddles',
+        win: `Get the ball past a paddle ${TO} times before the paddles hold ${TO} rallies.`,
         intro: [
-          'Hold ↑/↓ (or hold the mouse button above or below the ball) to bend its path. This drains your spin meter.',
-          `Get the ball past either paddle to score. A rally of ${RALLY_HOLD} returns scores for the paddles.`,
-          `First to ${TO}. The paddles get quicker and smarter every point.`,
+          'Hold ↑/↓ (or hold the mouse button above or below the ball) to bend its path. This drains your SPIN meter, which refills slowly.',
+          'You can\'t bend inside the shaded zone in front of each paddle, so start your curve early.',
+          `Every ${RALLY_HOLD} returns in a row scores a point for the paddles.`,
         ],
         help: 'Hold ↑/↓ or hold the mouse to bend · P pauses',
       },
@@ -83,16 +100,16 @@
     create(api) {
       const flip = api.mode === 'flip';
       const L = { y: (TOP + BOT) / 2 }, R = { y: (TOP + BOT) / 2 };
-      const readError = flip ? 44 : 30;
-      const cpuL = cpuPaddle('left', readError), cpuR = cpuPaddle('right', readError);
+      const cfg = flip ? CPU.flip : CPU.classic;
+      const cpuL = cpuPaddle('left', cfg.readError), cpuR = cpuPaddle('right', cfg.readError);
       const ball = { x: W / 2, y: (TOP + BOT) / 2, vx: 0, vy: 0, speed: 0 };
       let you = 0, cpu = 0, serveT = 1.2, rally = 0, meter = 1, bending = 0, useMouse = false;
       let flash = '', flashT = 0;
-      const skill = () => (flip ? Math.min(0.12 + (you + cpu) * 0.06, 0.85) : Math.min(0.45 + (you + cpu) * 0.05, 0.9));
+      const skill = () => cfg.skill;   // steady all game: no easy start, no unbeatable finish
 
       function serve(dir) {
         ball.x = W / 2; ball.y = U.rand(TOP + 80, BOT - 80);
-        ball.speed = flip ? 360 + (you + cpu) * 8 : 340;
+        ball.speed = START_SPEED;
         const a = U.rand(-0.45, 0.45);
         ball.vx = Math.cos(a) * ball.speed * dir; ball.vy = Math.sin(a) * ball.speed;
         rally = 0;
@@ -106,6 +123,7 @@
           api.end({ win: w, title: w ? 'You win!' : 'The computer wins', text: `${you} – ${cpu}` });
           return;
         }
+        Cab.sfx(humanScored ? 'score' : 'point');
         serveT = 1;
         ball.vx = ball.vy = 0;
         ball.x = W / 2;
@@ -113,10 +131,18 @@
 
       function bounce(p, dir) {
         const off = U.clamp((ball.y - p.y) / (PH / 2), -1, 1);
-        ball.speed = Math.min(ball.speed * 1.04, 760);
+        ball.speed = Math.min(ball.speed + SPEED_PER_HIT, MAX_SPEED);
         const a = off * 0.95;
         ball.vx = Math.cos(a) * ball.speed * dir; ball.vy = Math.sin(a) * ball.speed;
         rally++;
+        Cab.sfx('bounce');
+      }
+
+      // Re-aim the ball's velocity at its current speed, keeping its direction.
+      function setSpeed(v) {
+        const cur = Math.hypot(ball.vx, ball.vy) || 1;
+        ball.speed = v;
+        ball.vx *= v / cur; ball.vy *= v / cur;
       }
 
       return {
@@ -141,20 +167,25 @@
           }
           cpuR.update(R, ball, s, dt);
 
+          // --- gradual speed-up during a rally
+          setSpeed(Math.min(ball.speed + SPEED_PER_SEC * dt, MAX_SPEED));
+
           // --- bending (flip)
           bending = 0;
           if (flip) {
-            if (api.keys.has('ArrowUp') || api.keys.has('KeyW')) bending = -1;
-            else if (api.keys.has('ArrowDown') || api.keys.has('KeyS')) bending = 1;
-            else if (api.mouse.down) bending = api.mouse.y < ball.y - 10 ? -1 : api.mouse.y > ball.y + 10 ? 1 : 0;
-            if (bending && meter > 0) {
-              ball.vy += bending * 1300 * dt;
-              meter = Math.max(0, meter - dt * 0.8);
-              const cap = Math.abs(ball.vx) * 1.2;
+            let want = 0;
+            if (api.keys.has('ArrowUp') || api.keys.has('KeyW')) want = -1;
+            else if (api.keys.has('ArrowDown') || api.keys.has('KeyS')) want = 1;
+            else if (api.mouse.down) want = api.mouse.y < ball.y - 10 ? -1 : api.mouse.y > ball.y + 10 ? 1 : 0;
+            const inZone = ball.x < PX + PW + NO_BEND || ball.x > W - PX - PW - NO_BEND;
+            if (want && meter > 0 && !inZone) {
+              bending = want;
+              ball.vy += bending * BEND_ACCEL * dt;
+              meter = Math.max(0, meter - dt * BEND_DRAIN);
+              const cap = Math.abs(ball.vx) * BEND_CAP;
               ball.vy = U.clamp(ball.vy, -cap, cap);
-            } else {
-              bending = 0;
-              meter = Math.min(1, meter + dt * 0.35);
+            } else if (!want) {
+              meter = Math.min(1, meter + dt * BEND_REFILL);
             }
           }
 
@@ -162,8 +193,8 @@
           const n = Math.ceil((Math.hypot(ball.vx, ball.vy) * dt) / 5);
           for (let i = 0; i < n; i++) {
             ball.x += (ball.vx * dt) / n; ball.y += (ball.vy * dt) / n;
-            if (ball.y < TOP + BR) { ball.y = TOP + BR; ball.vy = Math.abs(ball.vy); }
-            if (ball.y > BOT - BR) { ball.y = BOT - BR; ball.vy = -Math.abs(ball.vy); }
+            if (ball.y < TOP + BR) { ball.y = TOP + BR; ball.vy = Math.abs(ball.vy); Cab.sfx('tick'); }
+            if (ball.y > BOT - BR) { ball.y = BOT - BR; ball.vy = -Math.abs(ball.vy); Cab.sfx('tick'); }
             if (ball.vx < 0 && ball.x - BR <= PX + PW && ball.x - BR >= PX - 6 && Math.abs(ball.y - L.y) <= PH / 2 + BR) {
               ball.x = PX + PW + BR; bounce(L, 1);
             }
@@ -177,6 +208,12 @@
         },
         draw(g) {
           D.clear(g, '#07061a');
+          if (flip) {
+            // the no-bend zones
+            g.fillStyle = '#ff5d6c14';
+            g.fillRect(0, TOP, PX + PW + NO_BEND, BOT - TOP);
+            g.fillRect(W - PX - PW - NO_BEND, TOP, PX + PW + NO_BEND, BOT - TOP);
+          }
           g.strokeStyle = '#8d7bff44';
           g.setLineDash([10, 12]);
           g.beginPath(); g.moveTo(W / 2, TOP); g.lineTo(W / 2, BOT); g.stroke();
@@ -195,11 +232,17 @@
           g.restore();
           if (flip) {
             D.hud(g, [`PADDLES ${cpu}`, `RALLY ${rally}/${RALLY_HOLD}`, `YOU ${you}`]);
+            D.text(g, 'SPIN', W / 2 - 108, 25, 8, '#ffd23e', 'right');
             g.fillStyle = '#222'; g.fillRect(W / 2 - 100, 26, 200, 5);
             g.fillStyle = meter > 0.2 ? '#ffd23e' : '#ff5d6c'; g.fillRect(W / 2 - 100, 26, 200 * meter, 5);
           } else {
             D.hud(g, [`YOU ${you}`, `FIRST TO ${TO}`, `CPU ${cpu}`]);
           }
+          // speed gauge, bottom centre
+          const sf = (ball.speed - START_SPEED) / (MAX_SPEED - START_SPEED);
+          D.text(g, 'SPEED', W / 2 - 68, H - 6 - 8, 8, '#9c97bd', 'right');
+          g.fillStyle = '#222'; g.fillRect(W / 2 - 60, H - 14, 120, 5);
+          g.fillStyle = sf > 0.75 ? '#ff5d6c' : '#8d7bff'; g.fillRect(W / 2 - 60, H - 14, 120 * U.clamp(sf, 0, 1), 5);
           if (flashT > 0) D.text(g, flash, W / 2, H / 2 - 10, 14, '#ffd23e', 'center');
         },
       };
