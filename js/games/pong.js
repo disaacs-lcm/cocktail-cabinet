@@ -19,10 +19,14 @@
   // Ball Bender limits: how hard and how long you can curve, and the no-bend zone in
   // front of each paddle (so you can't bend the ball at the last instant).
   const BEND_ACCEL = 950, BEND_DRAIN = 1.0, BEND_REFILL = 0.25, BEND_CAP = 1.0, NO_BEND = 110;
+  // Autopilot only (Node balance runs): a typical human paddle is modelled by cpuPaddle
+  // at this skill; a human bender starts curving once the ball is past the no-bend zone,
+  // away from the paddle it's heading toward, after a short reaction.
+  const HUMAN_MODEL = { skill: 0.55, readError: 40, bendReach: 260, bendReaction: 0.15 };
   // Computer paddle settings per mode (see cpuPaddle).
   const CPU = {
-    classic: { skill: 0.6, readError: 40 },
-    flip:    { skill: 0.4, readError: 52 },
+    classic: { skill: 0.55, readError: 40 },
+    flip:    { skill: 0.37, readError: 52 },
   };
 
   function fold(y, lo, hi) {
@@ -101,7 +105,11 @@
       const flip = api.mode === 'flip';
       const L = { y: (TOP + BOT) / 2 }, R = { y: (TOP + BOT) / 2 };
       const cfg = flip ? CPU.flip : CPU.classic;
-      const cpuL = cpuPaddle('left', cfg.readError), cpuR = cpuPaddle('right', cfg.readError);
+      const auto = api.autopilot;
+      const cpuL = cpuPaddle('left', flip ? cfg.readError : HUMAN_MODEL.readError), cpuR = cpuPaddle('right', cfg.readError);
+      // ?level=N serves N-1 steps faster (+80 px/s each) to test fast rallies
+      const serveSpeed = Math.min(START_SPEED + (api.level - 1) * 80, MAX_SPEED);
+      let bendWait = 0;
       const ball = { x: W / 2, y: (TOP + BOT) / 2, vx: 0, vy: 0, speed: 0 };
       let you = 0, cpu = 0, serveT = 1.2, rally = 0, meter = 1, bending = 0, useMouse = false;
       let flash = '', flashT = 0;
@@ -109,7 +117,7 @@
 
       function serve(dir) {
         ball.x = W / 2; ball.y = U.rand(TOP + 80, BOT - 80);
-        ball.speed = START_SPEED;
+        ball.speed = serveSpeed;
         const a = U.rand(-0.45, 0.45);
         ball.vx = Math.cos(a) * ball.speed * dir; ball.vy = Math.sin(a) * ball.speed;
         rally = 0;
@@ -158,6 +166,7 @@
           const s = skill();
           // --- left paddle
           if (flip) cpuL.update(L, ball, s, dt);
+          else if (auto) cpuL.update(L, ball, HUMAN_MODEL.skill, dt);
           else {
             const up = api.keys.has('KeyW') || api.keys.has('ArrowUp');
             const dn = api.keys.has('KeyS') || api.keys.has('ArrowDown');
@@ -177,6 +186,14 @@
             if (api.keys.has('ArrowUp') || api.keys.has('KeyW')) want = -1;
             else if (api.keys.has('ArrowDown') || api.keys.has('KeyS')) want = 1;
             else if (api.mouse.down) want = api.mouse.y < ball.y - 10 ? -1 : api.mouse.y > ball.y + 10 ? 1 : 0;
+            if (auto) {
+              // bend away from the paddle the ball is heading toward, once inside reach
+              const p = ball.vx < 0 ? L : R;
+              const dist = ball.vx < 0 ? ball.x - (PX + PW) : (W - PX - PW) - ball.x;
+              const inReach = dist > NO_BEND && dist < NO_BEND + HUMAN_MODEL.bendReach;
+              bendWait = inReach ? bendWait + dt : 0;
+              want = inReach && bendWait > HUMAN_MODEL.bendReaction ? (ball.y < p.y ? -1 : 1) : 0;
+            }
             const inZone = ball.x < PX + PW + NO_BEND || ball.x > W - PX - PW - NO_BEND;
             if (want && meter > 0 && !inZone) {
               bending = want;
@@ -238,6 +255,7 @@
           } else {
             D.hud(g, [`YOU ${you}`, `FIRST TO ${TO}`, `CPU ${cpu}`]);
           }
+          D.testTag(g, api.level);
           // speed gauge, bottom centre
           const sf = (ball.speed - START_SPEED) / (MAX_SPEED - START_SPEED);
           D.text(g, 'SPEED', W / 2 - 68, H - 6 - 8, 8, '#9c97bd', 'right');
