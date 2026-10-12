@@ -1,0 +1,8 @@
+{
+  "name": "cocktail-cabinet",
+  "private": true,
+  "description": "Seven two-sided arcade games plus an original eighth. Static site; Node is only used for the balance check.",
+  "scripts": {
+    "balance": "node tools/balance.js"
+  }
+}

@@ -1,0 +1,131 @@
+{
+  "runs": 200,
+  "rows": [
+    {
+      "key": "snake/classic",
+      "name": "snake classic",
+      "human": 100,
+      "cpu": 1,
+      "draws": 0,
+      "avg": 91,
+      "ok": false
+    },
+    {
+      "key": "snake/flip",
+      "name": "snake flipped",
+      "human": 1,
+      "cpu": 99,
+      "draws": 0,
+      "avg": 125,
+      "ok": false
+    },
+    {
+      "key": "breakout/classic",
+      "name": "breakout classic",
+      "human": 100,
+      "cpu": 0,
+      "draws": 0,
+      "avg": 788,
+      "ok": false
+    },
+    {
+      "key": "breakout/flip",
+      "name": "breakout flipped",
+      "human": 53,
+      "cpu": 47,
+      "draws": 0,
+      "avg": 428,
+      "ok": true
+    },
+    {
+      "key": "splat/classic",
+      "name": "splat classic",
+      "human": 100,
+      "cpu": 1,
+      "draws": 0,
+      "avg": 45,
+      "ok": false
+    },
+    {
+      "key": "splat/flip",
+      "name": "splat flipped",
+      "human": 30,
+      "cpu": 71,
+      "draws": 0,
+      "avg": 33,
+      "ok": false
+    },
+    {
+      "key": "asteroids/classic",
+      "name": "asteroids classic",
+      "human": 100,
+      "cpu": 0,
+      "draws": 0,
+      "avg": 141,
+      "ok": false
+    },
+    {
+      "key": "asteroids/flip",
+      "name": "asteroids flipped",
+      "human": 84,
+      "cpu": 16,
+      "draws": 0,
+      "avg": 166,
+      "ok": false
+    },
+    {
+      "key": "missile/classic",
+      "name": "missile classic",
+      "human": 100,
+      "cpu": 0,
+      "draws": 0,
+      "avg": 194,
+      "ok": false
+    },
+    {
+      "key": "missile/flip",
+      "name": "missile flipped",
+      "human": 100,
+      "cpu": 0,
+      "draws": 0,
+      "avg": 123,
+      "ok": false
+    },
+    {
+      "key": "pong/classic",
+      "name": "pong classic",
+      "human": 37,
+      "cpu": 63,
+      "draws": 0,
+      "avg": 254,
+      "ok": false
+    },
+    {
+      "key": "pong/flip",
+      "name": "pong flipped",
+      "human": 37,
+      "cpu": 63,
+      "draws": 0,
+      "avg": 98,
+      "ok": false
+    },
+    {
+      "key": "imitation/flip",
+      "name": "imitation flipped",
+      "human": 100,
+      "cpu": 0,
+      "draws": 0,
+      "avg": null,
+      "ok": false
+    },
+    {
+      "key": "imitation/classic",
+      "name": "imitation classic",
+      "human": 0,
+      "cpu": 100,
+      "draws": 0,
+      "avg": null,
+      "ok": false
+    }
+  ]
+}

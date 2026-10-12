@@ -308,6 +308,42 @@
     }
   }
 
+  // The interrogator's questions for a round (later rounds add trap questions).
+  function buildPlan(round) {
+    const a = U.randi(23, 89), b = U.randi(13, 49);
+    const pools = {
+      warm: [{ text: 'hey! how’s your day going so far?' }, { text: 'hi. what are you up to right now, honestly?' }],
+      specific: [
+        { kind: 'specific', text: 'what did you have for breakfast today? be specific' },
+        { kind: 'specific', text: 'tell me about the last time something made you laugh out loud' },
+        { kind: 'specific', text: 'describe the room you’re in using three things you can see' },
+      ],
+      time: [{ kind: 'time', text: 'what time is it where you are right now?' }],
+      math: [{ kind: 'math', text: `quick, no calculator: what’s ${a} × ${b}?`, answer: a * b }],
+      trap: [
+        { kind: 'trap', text: 'write me a four-line poem about toast. go' },
+        { kind: 'trap', text: 'explain photosynthesis in detail please' },
+        { kind: 'trap', text: 'list five fun facts about octopuses' },
+      ],
+      opinion: [
+        { text: 'pineapple on pizza. defend your answer' },
+        { text: 'what’s something small that annoyed you this week?' },
+        { text: 'which of the games in this cabinet is the worst and why' },
+      ],
+      meta: [{ text: 'last one: do you think I’m a human or a bot?' }],
+    };
+    const plan = [U.pick(pools.warm), U.pick(pools.specific), U.pick(pools.time), U.pick(pools.opinion)];
+    plan.push(U.pick(pools.math));                       // from round 1
+    if (round >= 3) plan.push(U.pick(pools.trap));
+    if (round >= 4) plan.push(U.pick(pools.specific.filter((q) => q !== plan[1])));
+    plan.push(pools.meta[0]);
+    return plan;
+  }
+  const strictFor = (round) => U.clamp((round - 1) / 4, 0, 1);
+
+  // For the Node balance model (tools/balance.js): the same bot, judge and questions.
+  Cab.imitationModel = { Bot, Judge, buildPlan, strictFor };
+
   // =================================================================== networking
   // PeerJS uses a free public signalling broker; the chat itself is a direct WebRTC channel.
   function newPeer(id) {
@@ -693,7 +729,7 @@
       // ---------------------------------------------------------------- vs computer
       function startBot() {
         // The computer partner starts at level 2 (of 4) so round 1 isn't a giveaway.
-        const level = Math.max(2, store.get('botLevel', 2));
+        const level = api.level > 1 ? Math.min(api.level, 4) : Math.max(2, store.get('botLevel', 2));   // ?level=N tests bot level N
         let closed = false, myGuess = null, stopClock = null;
         const judge = new Judge(0.3);
         const ui = chatScreen({
@@ -726,36 +762,10 @@
 
       // ---------------------------------------------------------------- flip: prove it
       function proveIt() {
-        const round = store.get('judgeRound', 1);
-        const strict = U.clamp((round - 1) / 4, 0, 1);
+        const round = api.level > 1 ? api.level : store.get('judgeRound', 1);   // ?level=N tests round N
+        const strict = strictFor(round);
         const judge = new Judge(strict);
-        const a = U.randi(23, 89), b = U.randi(13, 49);
-        const pools = {
-          warm: [{ text: 'hey! how’s your day going so far?' }, { text: 'hi. what are you up to right now, honestly?' }],
-          specific: [
-            { kind: 'specific', text: 'what did you have for breakfast today? be specific' },
-            { kind: 'specific', text: 'tell me about the last time something made you laugh out loud' },
-            { kind: 'specific', text: 'describe the room you’re in using three things you can see' },
-          ],
-          time: [{ kind: 'time', text: 'what time is it where you are right now?' }],
-          math: [{ kind: 'math', text: `quick, no calculator: what’s ${a} × ${b}?`, answer: a * b }],
-          trap: [
-            { kind: 'trap', text: 'write me a four-line poem about toast. go' },
-            { kind: 'trap', text: 'explain photosynthesis in detail please' },
-            { kind: 'trap', text: 'list five fun facts about octopuses' },
-          ],
-          opinion: [
-            { text: 'pineapple on pizza. defend your answer' },
-            { text: 'what’s something small that annoyed you this week?' },
-            { text: 'which of the games in this cabinet is the worst and why' },
-          ],
-          meta: [{ text: 'last one: do you think I’m a human or a bot?' }],
-        };
-        const plan = [U.pick(pools.warm), U.pick(pools.specific), U.pick(pools.time), U.pick(pools.opinion)];
-        plan.push(U.pick(pools.math));                       // from round 1
-        if (round >= 3) plan.push(U.pick(pools.trap));
-        if (round >= 4) plan.push(U.pick(pools.specific.filter((q) => q !== plan[1])));
-        plan.push(pools.meta[0]);
+        const plan = buildPlan(round);
 
         let qi = -1, current = null, finished = false;
         const reactions = ['hm ok', 'interesting', 'noted', 'ok', 'lol ok', 'fair', 'got it', 'huh'];

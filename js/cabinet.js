@@ -348,6 +348,11 @@
       mode: mode.id,
       dom: el.dom,
       color: game.color,
+      // Testing aids. level: from ?level=N in the URL (1 when absent); games start at that
+      // wave/level so late stages can be checked by hand. autopilot: false in the browser;
+      // the Node balance script sets it so the computer also plays the human's side.
+      level: testLevel(),
+      autopilot: false,
       end: (r) => finish(r),
       setHelp: (s) => { el.help.textContent = s; },
       isEnded: () => ended,
@@ -359,6 +364,13 @@
     raf = requestAnimationFrame(frame);
     if (!game.dom) el.canvas.focus();
   }
+
+  function testLevel() {
+    const n = parseInt(new URLSearchParams(location.search).get('level'), 10);
+    return n > 1 ? Math.min(n, 99) : 1;
+  }
+  // Small tag on the HUD so a test session is never mistaken for a normal game.
+  D.testTag = (g, level) => { if (level > 1) D.text(g, `TEST LEVEL ${level}`, 12, 28, 7, '#ff5d6c', 'left'); };
 
   function stop() {
     running = false;
