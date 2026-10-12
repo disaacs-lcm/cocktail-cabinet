@@ -183,6 +183,7 @@
         id: 'classic', name: 'Classic',
         you: 'steer the snake',
         cpu: 'places the apples, nastier each level',
+        win: `Eat ${CLASSIC_GOAL} apples without hitting a wall or yourself.`,
         intro: [
           'Arrow keys or WASD to turn.',
           `Eat ${CLASSIC_GOAL} apples to win. Walls and your own body are deadly.`,
@@ -194,6 +195,7 @@
         id: 'flip', name: 'Flipped',
         you: 'place the apples',
         cpu: 'steers the snake',
+        win: `Make the snake crash or starve before it eats ${FLIP_GOAL} apples.`,
         intro: [
           'Click an empty cell to drop the next apple. It must be reachable.',
           'The snake has to eat before its hunger bar empties, and the bar gets shorter every apple.',
@@ -221,11 +223,12 @@
       const level = () => Math.floor(eaten / 5) + 1;
       const rate = () => flip ? Math.min(7 + eaten * 0.25, 13) : Math.min(7 + eaten * 0.3, 16);
 
-      function say(msg) { flash = msg; flashT = 1.6; }
+      function say(msg, sound) { flash = msg; flashT = 1.6; if (sound) Cab.sfx(sound); }
 
       function placeApple(c, byHuman) {
         s.apple = c;
         waitT = 0;
+        if (byHuman) Cab.sfx('place');
         if (flip) {
           // Hunger: shortest distance plus some slack. Slack shrinks from 26 to 5 moves.
           const head = s.snake[0];
@@ -241,9 +244,9 @@
       function tryHumanPlace(x, y) {
         const cx = Math.floor(x / C), cy = Math.floor((y - OY) / C);
         if (!inb(cx, cy) || s.apple) return;
-        if (bodyGrid(s.snake, false)[idx(cx, cy)]) return say('That cell is snake');
+        if (bodyGrid(s.snake, false)[idx(cx, cy)]) return say('That cell is snake', 'error');
         const head = s.snake[0];
-        if (!bfs(head.x, head.y, bodyGrid(s.snake, true), { x: cx, y: cy })) return say('Unreachable — pick another cell');
+        if (!bfs(head.x, head.y, bodyGrid(s.snake, true), { x: cx, y: cy })) return say('Unreachable — pick another cell', 'error');
         placeApple({ x: cx, y: cy }, true);
       }
 
@@ -271,10 +274,11 @@
         if (ate) {
           eaten++;
           s.apple = null;
+          Cab.sfx('eat');
           s.hunger = Infinity;
           if (!flip && eaten >= CLASSIC_GOAL) return api.end({ win: true, title: 'You win!', text: `${CLASSIC_GOAL} apples eaten at length ${s.snake.length}.` });
           if (flip && eaten >= FLIP_GOAL) return api.end({ win: false, title: 'The snake wins', text: `It ate all ${FLIP_GOAL} apples. Try luring it into a dead end when its hunger is short.` });
-          if (eaten % 5 === 0) say(`Level ${level()}`);
+          if (eaten % 5 === 0) say(`Level ${level()}`, 'level');
           if (!flip) {
             const c = cpuPlace(s, level());
             if (!c) return api.end({ win: true, title: 'Board full!', text: 'There is nowhere left to put an apple.' });
@@ -282,6 +286,7 @@
           }
         } else if (flip && s.apple) {
           s.hunger--;
+          if (s.hunger === 8) Cab.sfx('warn');
           if (s.hunger <= 0) {
             dead = true;
             return api.end({ win: true, title: 'You win — it starved!', text: `The snake ate ${eaten} of ${FLIP_GOAL} apples.` });
@@ -291,6 +296,7 @@
 
       function die(why) {
         dead = true;
+        Cab.sfx('explode');
         if (flip) api.end({ win: true, title: 'You win — splat!', text: `${why} after ${eaten} apples.` });
         else api.end({ win: false, title: 'Game over', text: `${why}. You ate ${eaten} apples (level ${level()}).` });
       }
