@@ -10,6 +10,14 @@
   'use strict';
   const { U, D, W, H } = Cab;
   const PADDLE_Y = H - 40, TOP = 44, BH = 20, HUMAN_MAX_SPEED = 1100;
+  // Autopilot only (Node balance runs): a typical human paddle, modelled with the same
+  // controller the computer uses at this skill.
+  const HUMAN_MODEL = { skill: 0.45 };
+  // Classic difficulty: ball speed at level L is speed0 + L*speedPerLevel, it gains
+  // `accel` px/s each second in play up to maxMult times that, and the paddle shrinks.
+  // Versus: the computer paddle's skill in round 1, and how much it sharpens each round.
+  const VERSUS_CPU = { skill0: 0.2, perRound: 0.15 };
+  const CLASSIC = { speed0: 290, speedPerLevel: 40, accel: 10, maxMult: 2.0, paddle0: 132, paddleShrink: 10 };
   const ROW_COLORS = ['#ff4fa3', '#ff8a3d', '#ffd23e', '#5dff9b', '#3ee6ff', '#8d7bff', '#ff5d6c', '#c0ff3e'];
 
   class Well {
@@ -249,11 +257,13 @@
   });
 
   function classic(api) {
-    let level = 1, well, banner = 0, score = 0;
-    const human = humanController(api, (x) => x);
+    let level = Math.min(api.level, 5), well, banner = 0, score = 0;   // ?level=N starts at wall N
+    const human = api.autopilot ? cpuController(HUMAN_MODEL.skill) : humanController(api, (x) => x);
     function build() {
       well = new Well(0, W, 12, Math.min(3 + level, 8), {
-        speed: 290 + level * 30, paddleW: Math.max(70, 118 - level * 9), tough: level >= 3,
+        speed: CLASSIC.speed0 + level * CLASSIC.speedPerLevel, accel: CLASSIC.accel,
+        maxSpeed: (CLASSIC.speed0 + level * CLASSIC.speedPerLevel) * CLASSIC.maxMult,
+        paddleW: Math.max(60, CLASSIC.paddle0 - level * CLASSIC.paddleShrink), tough: level >= 3,
         lives: well ? well.lives + 1 : 3,
       });
       banner = 1.5;
@@ -286,6 +296,7 @@
         D.clear(g);
         well.draw(g, '', '#ff8a3d');
         D.hud(g, [`LEVEL ${level}/5`, `BRICKS ${score}`, `BALLS ${well.lives}`]);
+        D.testTag(g, api.level);
         if (banner > 0) D.text(g, `LEVEL ${level}`, W / 2, H / 2, 22, '#ff8a3d', 'center');
         else if (well.ball.stuck) D.text(g, 'CLICK TO LAUNCH', W / 2, H / 2 + 40, 12, '#9c97bd', 'center');
       },
@@ -294,7 +305,8 @@
 
   function versus(api) {
     const GAP = 20, WW = (W - GAP) / 2, PUSH_EVERY = 4;
-    let round = 0, wins = { you: 0, cpu: 0 }, you, cpu, humanCtl, cpuCtl, pending = { you: 0, cpu: 0 };
+    // ?level=N starts at round N
+    let round = Math.min(api.level, 5) - 1, wins = { you: 0, cpu: 0 }, you, cpu, humanCtl, cpuCtl, pending = { you: 0, cpu: 0 };
     let banner = 0, bannerText = '', between = false, elapsed = 0;
 
     function newRound() {
@@ -302,8 +314,8 @@
       elapsed = 0;
       you = new Well(0, WW, 8, 5, { speed: 300, paddleW: 84 });
       cpu = new Well(WW + GAP, WW, 8, 5, { speed: 300, paddleW: 84 });
-      humanCtl = humanController(api, (x) => U.lerp(0, WW, x / W));
-      cpuCtl = cpuController(Math.min(0.12 + (round - 1) * 0.15, 0.75));
+      humanCtl = api.autopilot ? cpuController(HUMAN_MODEL.skill) : humanController(api, (x) => U.lerp(0, WW, x / W));
+      cpuCtl = cpuController(Math.min(VERSUS_CPU.skill0 + (round - 1) * VERSUS_CPU.perRound, 0.8));
       pending = { you: 0, cpu: 0 };
       banner = 1.6; bannerText = `ROUND ${round}`; between = false;
     }
@@ -359,6 +371,7 @@
         you.draw(g, 'YOU', '#3ee6ff');
         cpu.draw(g, 'CPU', '#ff8a3d');
         D.hud(g, [`YOU ${wins.you}`, `ROUND ${round} · FIRST TO 3`, `CPU ${wins.cpu}`]);
+        D.testTag(g, api.level);
         // NEXT ROW pips: how close each side is to dropping a row on the other
         [[you, 'you', '#3ee6ff'], [cpu, 'cpu', '#ff8a3d']].forEach(([w, k, col]) => {
           const x0 = w.x + 10;
